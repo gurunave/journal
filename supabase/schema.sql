@@ -88,6 +88,25 @@ create trigger incidents_touch before update on public.incidents
   for each row execute function public.touch_updated_at();
 
 -- ---------------------------------------------------------------------------
+-- Table privileges.
+-- A standard Supabase project already grants these through its default
+-- privileges, so this is usually a no-op. Stating them makes the schema
+-- self-contained rather than dependent on project defaults. Row level security
+-- below is what actually restricts the rows; this only opens the tables.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    grant usage on schema public to authenticated;
+    grant select, insert, update, delete
+      on public.reportees, public.categories, public.incidents, public.one_on_ones
+      to authenticated;
+  end if;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Row level security — every row is private to the manager who wrote it
 -- ---------------------------------------------------------------------------
 

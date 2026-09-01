@@ -80,7 +80,18 @@ ship in a client; the `service_role` key must never go in this project.
 cp .env.example .env
 ```
 
-Fill in `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+Fill in `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`, then check
+the whole setup in one command:
+
+```bash
+npm run check:supabase
+# or, to also verify sign-in and row level security:
+node scripts/check-supabase.mjs you@company.com yourpassword
+```
+
+It reports everything that is still missing — unset keys, a service_role key
+pasted in by mistake, tables that were never created, or a database that needs a
+migration — rather than stopping at the first problem.
 
 > Expo inlines `EXPO_PUBLIC_*` values at build time and Metro caches the result.
 > After editing `.env`, restart with `npx expo start -c` (or export with
@@ -132,6 +143,7 @@ src/
   state/                auth provider, data store with the offline outbox
 supabase/schema.sql     tables, RLS policies, storage bucket, triggers
 supabase/migrations/    deltas for a database created before a schema change
+scripts/                check-supabase.mjs — verifies a project is set up right
 ```
 
 ## Data model
@@ -148,6 +160,15 @@ Photos live in the private `incident-photos` bucket at
 check, and the app reads them back through short-lived signed URLs.
 
 ## Verification status
+
+The SQL is executed, not just written: `schema.sql` and both migrations were run
+against a real PostgreSQL 16 server with stand-ins for the objects Supabase
+provides (`auth.users`, `auth.uid()`, `storage.*`). That run confirms the schema
+applies cleanly and is safe to re-run, the signup trigger seeds seven themes per
+account, row level security isolates two accounts from each other (a
+cross-account insert is refused), and migrating a database built on the original
+schema carries each single `category` across into `themes` — leaving an untagged
+row as `{}` rather than `{NULL}` — then drops the old column.
 
 `npm run typecheck` passes, and the app bundles for web, iOS and Android
 (`expo export`). All screens were rendered in a browser in both light and dark
