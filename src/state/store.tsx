@@ -45,7 +45,7 @@ type DataValue = {
 const DataContext = createContext<DataValue | null>(null);
 
 const INCIDENT_COLUMNS =
-  'id, owner_id, reportee_id, occurred_at, sentiment, severity, category, note, photo_path, discussed_at, created_at, updated_at';
+  'id, owner_id, reportee_id, occurred_at, sentiment, severity, themes, note, photo_path, discussed_at, created_at, updated_at';
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -119,14 +119,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const merged = mergeIncidents(remoteIncidents, pending);
 
       setReportees((r.data ?? []) as Reportee[]);
-      setCategories((c.data ?? []) as Category[]);
+      setCategories(dedupeCategories((c.data ?? []) as Category[]));
       setIncidents(merged);
       setOneOnOnes((o.data ?? []) as OneOnOne[]);
       setLastSyncError(null);
 
       await Promise.all([
         writeCache(userId, 'reportees', r.data ?? []),
-        writeCache(userId, 'categories', c.data ?? []),
+        writeCache(userId, 'categories', dedupeCategories((c.data ?? []) as Category[])),
         writeCache(userId, 'incidents', merged),
         writeCache(userId, 'one_on_ones', o.data ?? []),
       ]);
@@ -164,7 +164,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               occurred_at: incident.occurred_at,
               sentiment: incident.sentiment,
               severity: incident.severity,
-              category: incident.category,
+              themes: incident.themes,
               note: incident.note,
               photo_path: photoPath,
             },
@@ -261,7 +261,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         occurred_at: input.occurred_at,
         sentiment: input.sentiment,
         severity: input.severity,
-        category: input.category,
+        themes: input.themes,
         note: input.note,
         photo_path: null,
         discussed_at: null,
@@ -305,7 +305,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           occurred_at: next.occurred_at,
           sentiment: next.sentiment,
           severity: next.severity,
-          category: next.category,
+          themes: next.themes,
           note: next.note,
           photo_path: next.photo_path,
           discussed_at: next.discussed_at,
@@ -343,9 +343,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         .single();
       if (error) throw error;
       const created = data as Reportee;
-      const next = [...reportees, created].sort((a, b) => a.name.localeCompare(b.name));
-      setReportees(next);
-      void writeCache(userId, 'reportees', next);
+      setReportees((prev) => {
+        const next = dedupeById([...prev, created]).sort((a, b) => a.name.localeCompare(b.name));
+        void writeCache(userId, 'reportees', next);
+        return next;
+      });
       return created;
     },
     [userId, reportees],
@@ -354,11 +356,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const updateReportee = useCallback<DataValue['updateReportee']>(
     async (id, patch) => {
       if (!userId) return;
-      const next = reportees
-        .map((r) => (r.id === id ? { ...r, ...patch } : r))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      setReportees(next);
-      void writeCache(userId, 'reportees', next);
+      setReportees((prev) => {
+        const next = prev
+          .map((r) => (r.id === id ? { ...r, ...patch } : r))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        void writeCache(userId, 'reportees', next);
+        return next;
+      });
 
       const { error } = await supabase
         .from('reportees')
@@ -386,9 +390,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         .select()
         .single();
       if (error) throw error;
-      const next = [...categories, data as Category];
-      setCategories(next);
-      void writeCache(userId, 'categories', next);
+
+      // Functional update: a concurrent refresh() may already have stored this
+      // row, and appending to a stale closure would duplicate it on screen.
+      setCategories((prev) => {
+        const next = dedupeCategories([...prev, data as Category]);
+        void writeCache(userId, 'categories', next);
+        return next;
+      });
     },
     [userId, categories],
   );
@@ -485,6 +494,22 @@ export function useData(): DataValue {
 }
 
 // ---------------------------------------------------------------------------
+
+/** Themes are identified by their label, so a repeated label is one theme. */
+function dedupeCategories(list: Category[]): Category[] {
+  const seen = new Set<string>();
+  return list.filter((c) => {
+    const key = c.label.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeById<T extends { id: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true)));
+}
 
 function sortIncidents(list: Incident[]): Incident[] {
   return [...list].sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));

@@ -33,7 +33,7 @@ create table if not exists public.incidents (
   occurred_at  timestamptz not null default now(),
   sentiment    text not null check (sentiment in ('positive', 'neutral', 'concern')),
   severity     smallint not null default 3 check (severity between 1 and 5),
-  category     text,
+  themes       text[] not null default '{}',
   note         text not null default '',
   photo_path   text,
   discussed_at timestamptz,
@@ -53,6 +53,8 @@ create table if not exists public.one_on_ones (
 
 create index if not exists incidents_owner_occurred_idx
   on public.incidents (owner_id, occurred_at desc);
+create index if not exists incidents_themes_idx
+  on public.incidents using gin (themes);
 create index if not exists incidents_reportee_occurred_idx
   on public.incidents (reportee_id, occurred_at desc);
 create index if not exists reportees_owner_idx on public.reportees (owner_id, archived);

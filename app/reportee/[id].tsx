@@ -194,7 +194,7 @@ function buildBrief(name: string, items: Incident[], since: string | null): stri
         month: 'short',
         day: 'numeric',
       });
-      const theme = i.category ? ` [${i.category}]` : '';
+      const theme = i.themes?.length ? ` [${i.themes.join(', ')}]` : '';
       lines.push(`• ${when}${theme} (impact ${i.severity}/5): ${i.note || 'no note'}`);
     }
     lines.push('');

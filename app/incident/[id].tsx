@@ -2,7 +2,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { CategoryPicker, SentimentPicker, SeverityPicker } from '../../src/components/pickers';
+import { SentimentPicker, SeverityPicker, ThemePicker } from '../../src/components/pickers';
 import { Avatar, Button, Card, Field, SectionHeader } from '../../src/components/ui';
 import { fullDateTime } from '../../src/lib/format';
 import { signedPhotoUrl } from '../../src/lib/photos';
@@ -14,14 +14,15 @@ export default function IncidentDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const navigation = useNavigation();
-  const { incidents, reportees, categories, updateIncident, deleteIncident } = useData();
+  const { incidents, reportees, categories, addCategory, updateIncident, deleteIncident } =
+    useData();
 
   const incident = incidents.find((x) => x.id === id) ?? null;
   const reportee = reportees.find((r) => r.id === incident?.reportee_id) ?? null;
 
   const [sentiment, setSentiment] = useState<Sentiment>(incident?.sentiment ?? 'neutral');
   const [severity, setSeverity] = useState(incident?.severity ?? 3);
-  const [category, setCategory] = useState<string | null>(incident?.category ?? null);
+  const [themes, setThemes] = useState<string[]>(incident?.themes ?? []);
   const [note, setNote] = useState(incident?.note ?? '');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -35,7 +36,7 @@ export default function IncidentDetail() {
     hydratedFor.current = incident.id;
     setSentiment(incident.sentiment);
     setSeverity(incident.severity);
-    setCategory(incident.category);
+    setThemes(incident.themes ?? []);
     setNote(incident.note);
   }, [incident]);
 
@@ -72,13 +73,13 @@ export default function IncidentDetail() {
   const dirty =
     sentiment !== incident.sentiment ||
     severity !== incident.severity ||
-    (category ?? null) !== (incident.category ?? null) ||
+    !sameThemes(themes, incident.themes) ||
     note !== incident.note;
 
   async function save() {
     setSaving(true);
     try {
-      await updateIncident(incident!.id, { sentiment, severity, category, note: note.trim() });
+      await updateIncident(incident!.id, { sentiment, severity, themes, note: note.trim() });
       router.back();
     } catch (err) {
       Alert.alert('Could not save', err instanceof Error ? err.message : 'Unknown error');
@@ -128,12 +129,15 @@ export default function IncidentDetail() {
         <SeverityPicker value={severity} onChange={setSeverity} tint={sentimentColor[sentiment]} />
       </View>
 
-      {categoryLabels.length > 0 ? (
-        <View style={styles.block}>
-          <SectionHeader title="Theme" />
-          <CategoryPicker categories={categoryLabels} value={category} onChange={setCategory} />
-        </View>
-      ) : null}
+      <View style={styles.block}>
+        <SectionHeader title={themes.length > 1 ? `Themes · ${themes.length}` : 'Themes'} />
+        <ThemePicker
+          themes={categoryLabels}
+          value={themes}
+          onChange={setThemes}
+          onCreate={addCategory}
+        />
+      </View>
 
       <View style={styles.block}>
         <SectionHeader title="Note" />
@@ -151,6 +155,13 @@ export default function IncidentDetail() {
       <Button title="Delete entry" variant="danger" onPress={confirmDelete} />
     </ScrollView>
   );
+}
+
+/** Order is not meaningful, so compare themes as sets. */
+function sameThemes(a: string[], b: string[] | undefined): boolean {
+  const left = [...(a ?? [])].sort();
+  const right = [...(b ?? [])].sort();
+  return left.length === right.length && left.every((x, i) => x === right[i]);
 }
 
 const styles = StyleSheet.create({

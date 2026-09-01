@@ -10,7 +10,7 @@ Android**, backed by Supabase (Postgres + Auth + Storage).
 ## What it does
 
 - **Capture** — one screen, no navigation: pick a person, tap a sentiment, tap an
-  impact score, tap a theme, type the note, save. Time defaults to *now* with
+  impact score, tap any number of themes, type the note, save. Time defaults to *now* with
   one-tap backdating (1h / 3h / yesterday) for when you get to it later. Optional
   photo attachment.
 - **Offline-first writes** — a capture lands in local storage and on screen
@@ -44,6 +44,11 @@ At [supabase.com](https://supabase.com), then:
    `incident-photos` storage bucket, and seeds a starter set of themes for each
    new account.
 2. Under **Project Settings → API**, copy the project URL and the `anon` public key.
+
+> Already ran `schema.sql` before themes became multi-select? Run
+> [`supabase/migrations/001_multi_theme.sql`](supabase/migrations/001_multi_theme.sql)
+> once — it adds the `themes` array, carries your existing single theme across,
+> and drops the old column. A fresh `schema.sql` run already has the new shape.
 
 Every table is protected by row-level security scoped to `auth.uid()`, so an
 account can only ever read and write its own rows. The `anon` key is designed to
@@ -106,6 +111,7 @@ src/
   components/           pickers, charts, incident row, UI primitives
   state/                auth provider, data store with the offline outbox
 supabase/schema.sql     tables, RLS policies, storage bucket, triggers
+supabase/migrations/    deltas for a database created before a schema change
 ```
 
 ## Data model
@@ -113,8 +119,8 @@ supabase/schema.sql     tables, RLS policies, storage bucket, triggers
 | Table         | Purpose                                                        |
 | ------------- | -------------------------------------------------------------- |
 | `reportees`   | Your team. Archivable rather than deletable, so history is kept. |
-| `categories`  | The one-tap themes on the capture screen.                       |
-| `incidents`   | One captured observation: who, when, sentiment, impact 1–5, theme, note, optional photo. |
+| `categories`  | The theme catalogue offered as one-tap chips. New themes can be added inline while capturing. |
+| `incidents`   | One captured observation: who, when, sentiment, impact 1–5, themes (a `text[]`, so an entry can carry several), note, optional photo. |
 | `one_on_ones` | Checkpoints. Marks everything logged so far as discussed.       |
 
 Photos live in the private `incident-photos` bucket at

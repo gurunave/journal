@@ -69,15 +69,23 @@ export function statsByReportee(incidents: Incident[], reportees: Reportee[]): R
     .sort((a, b) => b.total - a.total || a.reportee.name.localeCompare(b.reportee.name));
 }
 
+/**
+ * An incident can carry several themes, so it contributes a count to each one.
+ * Totals therefore exceed the incident count — that is intended: this answers
+ * "how often does this theme come up", not "how do incidents split".
+ */
 export function countCategories(incidents: Incident[]): { label: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const i of incidents) {
-    const key = i.category?.trim() || 'Uncategorised';
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const themes = i.themes?.length ? i.themes : ['Untagged'];
+    for (const theme of themes) {
+      const key = theme.trim() || 'Untagged';
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
   }
   return [...counts.entries()]
     .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 /** Buckets incidents into the last `weeks` ISO weeks, oldest first. */

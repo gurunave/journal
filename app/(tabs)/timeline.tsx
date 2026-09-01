@@ -29,7 +29,9 @@ export default function Timeline() {
       if (reporteeFilter && i.reportee_id !== reporteeFilter) return false;
       if (sentimentFilter && i.sentiment !== sentimentFilter) return false;
       if (!q) return true;
-      const haystack = `${i.note} ${i.category ?? ''} ${nameById.get(i.reportee_id) ?? ''}`;
+      const haystack = `${i.note} ${(i.themes ?? []).join(' ')} ${
+        nameById.get(i.reportee_id) ?? ''
+      }`;
       return haystack.toLowerCase().includes(q);
     });
   }, [incidents, query, reporteeFilter, sentimentFilter, nameById]);

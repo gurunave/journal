@@ -15,7 +15,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CategoryPicker, ReporteeStrip, SentimentPicker, SeverityPicker } from '../../src/components/pickers';
+import {
+  ReporteePicker,
+  SentimentPicker,
+  SeverityPicker,
+  ThemePicker,
+} from '../../src/components/pickers';
 import { Button, Card, Field, SectionHeader } from '../../src/components/ui';
 import { fullDateTime } from '../../src/lib/format';
 import { colors, radius, sentimentColor, space } from '../../src/lib/theme';
@@ -38,6 +43,7 @@ export default function Capture() {
     categories,
     incidents,
     addIncident,
+    addCategory,
     deleteIncident,
     pendingCount,
     syncing,
@@ -47,7 +53,7 @@ export default function Capture() {
   const [reporteeId, setReporteeId] = useState<string | null>(null);
   const [sentiment, setSentiment] = useState<Sentiment>('neutral');
   const [severity, setSeverity] = useState(3);
-  const [category, setCategory] = useState<string | null>(null);
+  const [themes, setThemes] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [when, setWhen] = useState<WhenKey>('now');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -63,6 +69,14 @@ export default function Capture() {
     return new Date(Date.now() - minutes * 60_000).toISOString();
   }, [when]);
 
+  const recentIds = useMemo(() => {
+    const seen: string[] = [];
+    for (const i of incidents) {
+      if (!seen.includes(i.reportee_id)) seen.push(i.reportee_id);
+    }
+    return seen;
+  }, [incidents]);
+
   const todayCount = useMemo(() => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -72,7 +86,7 @@ export default function Capture() {
   function resetForm() {
     setSentiment('neutral');
     setSeverity(3);
-    setCategory(null);
+    setThemes([]);
     setNote('');
     setWhen('now');
     setPhotoUri(null);
@@ -116,7 +130,7 @@ export default function Capture() {
         occurred_at: occurredAt,
         sentiment,
         severity,
-        category,
+        themes,
         note: note.trim(),
         local_photo_uri: photoUri,
       });
@@ -194,9 +208,10 @@ export default function Capture() {
 
           <View style={styles.block}>
             <SectionHeader title="Who" />
-            <ReporteeStrip
+            <ReporteePicker
               reportees={activeReportees}
               selectedId={reporteeId}
+              recentIds={recentIds}
               onSelect={(id) => {
                 setReporteeId(id);
                 setJustSavedId(null);
@@ -219,16 +234,17 @@ export default function Capture() {
             />
           </View>
 
-          {categoryLabels.length > 0 ? (
-            <View style={styles.block}>
-              <SectionHeader title="Theme" />
-              <CategoryPicker
-                categories={categoryLabels}
-                value={category}
-                onChange={setCategory}
-              />
-            </View>
-          ) : null}
+          <View style={styles.block}>
+            <SectionHeader
+              title={themes.length > 1 ? `Themes · ${themes.length}` : 'Themes'}
+            />
+            <ThemePicker
+              themes={categoryLabels}
+              value={themes}
+              onChange={setThemes}
+              onCreate={addCategory}
+            />
+          </View>
 
           <View style={styles.block}>
             <SectionHeader title="Note" />

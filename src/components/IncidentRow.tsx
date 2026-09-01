@@ -36,10 +36,19 @@ export function IncidentRow({
           <Text style={[styles.badge, { color: tint }]}>
             {sentimentIcon[incident.sentiment]} {incident.severity}
           </Text>
-          {incident.category ? <Text style={styles.category}>{incident.category}</Text> : null}
           <View style={{ flex: 1 }} />
           <Text style={styles.time}>{relativeTime(incident.occurred_at)}</Text>
         </View>
+
+        {incident.themes?.length ? (
+          <View style={styles.themeRow}>
+            {incident.themes.map((theme) => (
+              <Text key={theme} style={styles.theme}>
+                {theme}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
         {incident.note ? (
           <Text numberOfLines={2} style={styles.note}>
@@ -76,9 +85,10 @@ const styles = StyleSheet.create({
   headerLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   name: { color: colors.text, fontWeight: '700', fontSize: 15 },
   badge: { fontSize: 12, fontWeight: '700' },
-  category: {
+  themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 1 },
+  theme: {
     color: colors.textFaint,
-    fontSize: 12,
+    fontSize: 11,
     backgroundColor: colors.surfaceAlt,
     paddingHorizontal: 6,
     paddingVertical: 1,

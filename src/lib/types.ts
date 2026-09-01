@@ -28,7 +28,7 @@ export type Incident = {
   occurred_at: string;
   sentiment: Sentiment;
   severity: number;
-  category: string | null;
+  themes: string[];
   note: string;
   photo_path: string | null;
   discussed_at: string | null;
@@ -54,7 +54,7 @@ export type NewIncident = {
   occurred_at: string;
   sentiment: Sentiment;
   severity: number;
-  category: string | null;
+  themes: string[];
   note: string;
   local_photo_uri?: string | null;
 };
