@@ -8,26 +8,94 @@ import {
   View,
   type StyleProp,
   type TextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 
-import { avatarColor, colors, initials, radius, space } from '../lib/theme';
+import { avatarInk, fonts, initials, radius, space, type, useTheme } from '../lib/theme';
 
-export function Card({
+/** A hairline. The primary organising device — used instead of borders on boxes. */
+export function Rule({ style, strong }: { style?: StyleProp<ViewStyle>; strong?: boolean }) {
+  const { c } = useTheme();
+  return (
+    <View
+      style={[
+        { height: StyleSheet.hairlineWidth, backgroundColor: strong ? c.ruleStrong : c.rule },
+        style,
+      ]}
+    />
+  );
+}
+
+/** Uppercase mono column heading, optionally with a value at the right. */
+export function Eyebrow({
+  children,
+  right,
+  style,
+}: {
+  children: React.ReactNode;
+  right?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { c } = useTheme();
+  return (
+    <View style={[styles.eyebrowRow, style]}>
+      <Text style={[type.eyebrow, { color: c.inkFaint }]}>
+        {typeof children === 'string' ? children.toUpperCase() : children}
+      </Text>
+      {right ? <View style={styles.eyebrowRight}>{right}</View> : null}
+    </View>
+  );
+}
+
+/** A titled section: eyebrow, hairline, then content. */
+export function Section({
+  title,
+  right,
+  children,
+  style,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View style={[{ gap: space.md }, style]}>
+      <View style={{ gap: space.sm }}>
+        <Eyebrow right={right}>{title}</Eyebrow>
+        <Rule />
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/**
+ * The one raised surface in the app. Elevation is reserved for the thing you
+ * are actively composing, so it still means something when it appears.
+ */
+export function Panel({
   children,
   style,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  return <View style={[styles.card, style]}>{children}</View>;
-}
-
-export function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+  const { c, scheme } = useTheme();
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title.toUpperCase()}</Text>
-      {action}
+    <View
+      style={[
+        styles.panel,
+        {
+          backgroundColor: c.raised,
+          borderColor: c.rule,
+          shadowOpacity: scheme === 'dark' ? 0 : 0.05,
+        },
+        style,
+      ]}
+    >
+      {children}
     </View>
   );
 }
@@ -36,16 +104,17 @@ export function Chip({
   label,
   selected,
   onPress,
-  color,
-  compact,
+  tint,
+  dashed,
 }: {
   label: string;
   selected?: boolean;
   onPress?: () => void;
-  color?: string;
-  compact?: boolean;
+  tint?: string;
+  dashed?: boolean;
 }) {
-  const tint = color ?? colors.accent;
+  const { c } = useTheme();
+  const ink = tint ?? c.accent;
   return (
     <Pressable
       onPress={onPress}
@@ -53,14 +122,23 @@ export function Chip({
       accessibilityState={{ selected: !!selected }}
       style={({ pressed }) => [
         styles.chip,
-        compact && styles.chipCompact,
-        selected && { backgroundColor: tint + '26', borderColor: tint },
-        pressed && { opacity: 0.7 },
+        {
+          borderColor: selected ? ink : c.rule,
+          backgroundColor: selected ? c.accentSoft : 'transparent',
+          borderStyle: dashed ? 'dashed' : 'solid',
+        },
+        pressed && { opacity: 0.6 },
       ]}
     >
       <Text
         numberOfLines={1}
-        style={[styles.chipText, compact && styles.chipTextCompact, selected && { color: tint }]}
+        style={[
+          type.small,
+          {
+            color: selected ? (tint ?? c.accentInk) : c.inkSoft,
+            fontFamily: selected ? fonts.sansMedium : fonts.sans,
+          },
+        ]}
       >
         {label}
       </Text>
@@ -78,56 +156,75 @@ export function Button({
 }: {
   title: string;
   onPress?: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'quiet' | 'danger';
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const isDisabled = disabled || loading;
+  const { c } = useTheme();
+  const busy = disabled || loading;
+
+  const surface: ViewStyle =
+    variant === 'primary'
+      ? { backgroundColor: c.accent, borderColor: c.accent }
+      : variant === 'secondary'
+        ? { backgroundColor: 'transparent', borderColor: c.ruleStrong }
+        : variant === 'danger'
+          ? { backgroundColor: 'transparent', borderColor: c.rule }
+          : { backgroundColor: 'transparent', borderColor: 'transparent' };
+
+  const label: TextStyle =
+    variant === 'primary'
+      ? { color: c.onAccent, fontFamily: type.heading.fontFamily }
+      : variant === 'danger'
+        ? { color: c.danger }
+        : variant === 'quiet'
+          ? { color: c.inkSoft }
+          : { color: c.ink };
+
   return (
     <Pressable
       onPress={onPress}
-      disabled={isDisabled}
+      disabled={busy}
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.button,
-        variant === 'primary' && styles.buttonPrimary,
-        variant === 'secondary' && styles.buttonSecondary,
-        variant === 'ghost' && styles.buttonGhost,
-        variant === 'danger' && styles.buttonDanger,
-        isDisabled && { opacity: 0.45 },
-        pressed && !isDisabled && { opacity: 0.8 },
+        surface,
+        busy && { opacity: 0.4 },
+        pressed && !busy && { opacity: 0.75 },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#0B0D12' : colors.text} />
+        <ActivityIndicator color={variant === 'primary' ? c.onAccent : c.inkSoft} />
       ) : (
-        <Text
-          style={[
-            styles.buttonText,
-            variant === 'primary' && { color: '#0B0D12' },
-            variant === 'danger' && { color: colors.danger },
-            variant === 'ghost' && { color: colors.textDim },
-          ]}
-        >
-          {title}
-        </Text>
+        <Text style={[type.body, styles.buttonLabel, label]}>{title}</Text>
       )}
     </Pressable>
   );
 }
 
+/**
+ * Inputs are ruled lines, not boxes — the closest thing on screen to writing on
+ * paper, and it keeps the composer from looking like a web form.
+ */
 export const Field = React.forwardRef<TextInput, TextInputProps & { label?: string }>(
   function Field({ label, style, ...props }, ref) {
+    const { c } = useTheme();
     return (
-      <View style={{ gap: space.xs }}>
-        {label ? <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text> : null}
+      <View style={{ gap: space.sm }}>
+        {label ? <Text style={[type.eyebrow, { color: c.inkFaint }]}>{label.toUpperCase()}</Text> : null}
         <TextInput
           ref={ref}
-          placeholderTextColor={colors.textFaint}
+          placeholderTextColor={c.inkFaint}
           {...props}
-          style={[styles.input, props.multiline && styles.inputMultiline, style]}
+          style={[
+            type.prose,
+            styles.input,
+            { color: c.ink, borderBottomColor: c.rule },
+            props.multiline && styles.inputMultiline,
+            style,
+          ]}
         />
       </View>
     );
@@ -135,103 +232,80 @@ export const Field = React.forwardRef<TextInput, TextInputProps & { label?: stri
 );
 
 export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
-  const bg = avatarColor(name);
+  const ink = avatarInk(name);
   return (
     <View
       style={[
         styles.avatar,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: bg + '33', borderColor: bg },
+        {
+          width: size,
+          height: size,
+          borderRadius: radius.sm,
+          backgroundColor: ink,
+        },
       ]}
     >
-      <Text style={{ color: bg, fontWeight: '700', fontSize: size * 0.36 }}>{initials(name)}</Text>
+      <Text
+        style={{
+          // The avatar washes are mid-dark in both themes, so the mark stays white.
+          color: '#FFFFFF',
+          fontFamily: type.eyebrow.fontFamily,
+          fontSize: size * 0.32,
+          letterSpacing: 0.5,
+        }}
+      >
+        {initials(name)}
+      </Text>
     </View>
   );
 }
 
 export function EmptyState({ title, body }: { title: string; body?: string }) {
+  const { c } = useTheme();
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      {body ? <Text style={styles.emptyBody}>{body}</Text> : null}
+      <Text style={[type.title, { color: c.inkSoft, textAlign: 'center' }]}>{title}</Text>
+      {body ? (
+        <Text style={[type.body, { color: c.inkFaint, textAlign: 'center', maxWidth: 320 }]}>
+          {body}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-export function Divider() {
-  return <View style={styles.divider} />;
-}
-
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  eyebrowRight: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  panel: {
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     padding: space.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: space.sm,
-  },
-  sectionTitle: {
-    color: colors.textFaint,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
   },
   chip: {
-    paddingHorizontal: space.lg,
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: space.md,
+    paddingVertical: 7,
+    borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  chipCompact: { paddingHorizontal: space.md, paddingVertical: 6 },
-  chipText: { color: colors.textDim, fontSize: 15, fontWeight: '600' },
-  chipTextCompact: { fontSize: 13 },
   button: {
-    minHeight: 50,
+    minHeight: 48,
     borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
-  buttonPrimary: { backgroundColor: colors.accent },
-  buttonSecondary: {
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  buttonGhost: { backgroundColor: 'transparent' },
-  buttonDanger: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.danger + '66',
-  },
-  buttonText: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  fieldLabel: {
-    color: colors.textFaint,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.1,
-  },
+  buttonLabel: { fontFamily: type.heading.fontFamily },
   input: {
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: space.md,
-    paddingVertical: 12,
-    color: colors.text,
-    fontSize: 16,
+    paddingHorizontal: 0,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
-  avatar: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  empty: { padding: space.xl, alignItems: 'center', gap: space.xs },
-  emptyTitle: { color: colors.textDim, fontSize: 16, fontWeight: '600' },
-  emptyBody: { color: colors.textFaint, fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  inputMultiline: { minHeight: 92, textAlignVertical: 'top' },
+  avatar: { alignItems: 'center', justifyContent: 'center' },
+  empty: { paddingVertical: space.xxl, alignItems: 'center', gap: space.sm },
 });

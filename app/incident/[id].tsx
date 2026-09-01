@@ -3,10 +3,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { SentimentPicker, SeverityPicker, ThemePicker } from '../../src/components/pickers';
-import { Avatar, Button, Card, Field, SectionHeader } from '../../src/components/ui';
+import { Avatar, Button, Field, Rule, Section } from '../../src/components/ui';
 import { fullDateTime } from '../../src/lib/format';
 import { signedPhotoUrl } from '../../src/lib/photos';
-import { colors, sentimentColor, space } from '../../src/lib/theme';
+import { radius, space, type, useTheme } from '../../src/lib/theme';
 import type { Sentiment } from '../../src/lib/types';
 import { useData } from '../../src/state/store';
 
@@ -14,6 +14,7 @@ export default function IncidentDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const navigation = useNavigation();
+  const { c, sentiment: sentimentInk } = useTheme();
   const { incidents, reportees, categories, addCategory, updateIncident, deleteIncident } =
     useData();
 
@@ -49,10 +50,10 @@ export default function IncidentDetail() {
     setNote(incident.note);
   }, [incident]);
 
-  const categoryLabels = useMemo(() => categories.map((c) => c.label), [categories]);
+  const categoryLabels = useMemo(() => categories.map((x) => x.label), [categories]);
 
   useEffect(() => {
-    navigation.setOptions({ title: reportee?.name ?? 'Incident' });
+    navigation.setOptions({ title: reportee?.name ?? 'Entry' });
   }, [navigation, reportee?.name]);
 
   useEffect(() => {
@@ -73,8 +74,8 @@ export default function IncidentDetail() {
 
   if (!incident) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.missing}>This entry is no longer available.</Text>
+      <View style={[styles.center, { backgroundColor: c.paper }]}>
+        <Text style={[type.prose, { color: c.inkFaint }]}>This entry is no longer available.</Text>
       </View>
     );
   }
@@ -113,61 +114,64 @@ export default function IncidentDetail() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Card style={styles.headerCard}>
+    <ScrollView style={{ backgroundColor: c.paper }} contentContainerStyle={styles.content}>
+      <View style={styles.head}>
         <Avatar name={reportee?.name ?? '?'} size={44} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{reportee?.name ?? 'Unknown'}</Text>
-          <Text style={styles.stamp}>{fullDateTime(incident.occurred_at)}</Text>
-          {alsoWith.length ? (
-            <Text style={styles.alsoWith}>
-              Same capture also logged for {alsoWith.join(', ')} — edits here apply to{' '}
-              {reportee?.name.split(' ')[0] ?? 'this person'} only.
-            </Text>
-          ) : null}
-          {incident.pending ? <Text style={styles.pending}>Queued — will sync</Text> : null}
-          {incident.discussed_at ? (
-            <Text style={styles.discussed}>
-              Discussed in a 1:1 on {fullDateTime(incident.discussed_at)}
-            </Text>
-          ) : null}
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={[type.title, { color: c.ink }]}>{reportee?.name ?? 'Unknown'}</Text>
+          <Text style={[type.meta, { color: c.inkFaint }]}>
+            {fullDateTime(incident.occurred_at)}
+          </Text>
         </View>
-      </Card>
+      </View>
+      <Rule strong />
 
-      <View style={styles.block}>
-        <SectionHeader title="What kind" />
+      {alsoWith.length ? (
+        <Text style={[type.small, { color: c.inkSoft }]}>
+          The same capture was also logged for {alsoWith.join(', ')}. Edits here apply to{' '}
+          {reportee?.name.split(' ')[0] ?? 'this person'} only.
+        </Text>
+      ) : null}
+      {incident.pending ? (
+        <Text style={[type.meta, { color: c.accent }]}>Queued — will sync</Text>
+      ) : null}
+      {incident.discussed_at ? (
+        <Text style={[type.meta, { color: c.positive }]}>
+          Discussed on {fullDateTime(incident.discussed_at)}
+        </Text>
+      ) : null}
+
+      <Section title="What happened">
+        <Field value={note} onChangeText={setNote} multiline placeholder="In your own words…" />
+      </Section>
+
+      <Section title="Kind">
         <SentimentPicker value={sentiment} onChange={setSentiment} />
-      </View>
+      </Section>
 
-      <View style={styles.block}>
-        <SectionHeader title={`Impact · ${severity}/5`} />
-        <SeverityPicker value={severity} onChange={setSeverity} tint={sentimentColor[sentiment]} />
-      </View>
+      <Section title="Impact">
+        <SeverityPicker value={severity} onChange={setSeverity} tint={sentimentInk[sentiment]} />
+      </Section>
 
-      <View style={styles.block}>
-        <SectionHeader title={themes.length > 1 ? `Themes · ${themes.length}` : 'Themes'} />
+      <Section title={themes.length > 1 ? `Themes · ${themes.length}` : 'Themes'}>
         <ThemePicker
           themes={categoryLabels}
           value={themes}
           onChange={setThemes}
           onCreate={addCategory}
         />
-      </View>
-
-      <View style={styles.block}>
-        <SectionHeader title="Note" />
-        <Field value={note} onChangeText={setNote} multiline placeholder="What happened…" />
-      </View>
+      </Section>
 
       {photoUrl ? (
-        <View style={styles.block}>
-          <SectionHeader title="Photo" />
+        <Section title="Photo">
           <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="cover" />
-        </View>
+        </Section>
       ) : null}
 
-      <Button title="Save changes" onPress={save} disabled={!dirty} loading={saving} />
-      <Button title="Delete entry" variant="danger" onPress={confirmDelete} />
+      <View style={{ gap: space.md }}>
+        <Button title="Save changes" onPress={save} disabled={!dirty} loading={saving} />
+        <Button title="Delete entry" variant="danger" onPress={confirmDelete} />
+      </View>
     </ScrollView>
   );
 }
@@ -180,29 +184,15 @@ function sameThemes(a: string[], b: string[] | undefined): boolean {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
   content: {
-    padding: space.lg,
+    padding: space.xl,
     paddingBottom: space.xxl,
-    gap: space.lg,
-    maxWidth: 640,
+    gap: space.xl,
+    maxWidth: 620,
     width: '100%',
     alignSelf: 'center',
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-    padding: space.xl,
-  },
-  missing: { color: colors.textDim, fontSize: 15 },
-  headerCard: { flexDirection: 'row', gap: space.md, alignItems: 'center' },
-  name: { color: colors.text, fontSize: 18, fontWeight: '700' },
-  stamp: { color: colors.textFaint, fontSize: 13, marginTop: 2 },
-  pending: { color: colors.accent, fontSize: 12, marginTop: 4 },
-  alsoWith: { color: colors.textDim, fontSize: 12, marginTop: 6, lineHeight: 17 },
-  discussed: { color: colors.positive, fontSize: 12, marginTop: 4 },
-  block: { gap: space.sm },
-  photo: { width: '100%', height: 260, borderRadius: 12, backgroundColor: colors.surfaceAlt },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
+  head: { flexDirection: 'row', gap: space.lg, alignItems: 'center' },
+  photo: { width: '100%', height: 250, borderRadius: radius.sm },
 });

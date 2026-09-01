@@ -4,11 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { IncidentRow } from '../../src/components/IncidentRow';
-import { Legend, RankedBars, SentimentBar } from '../../src/components/charts';
-import { Avatar, Button, Card, EmptyState, SectionHeader } from '../../src/components/ui';
+import { Figure, Legend, RankedBars, SentimentBar } from '../../src/components/charts';
+import { Avatar, Button, EmptyState, Rule, Section } from '../../src/components/ui';
 import { countCategories, countSentiments } from '../../src/lib/analytics';
 import { fullDateTime, pluralize, relativeTime } from '../../src/lib/format';
-import { colors, sentimentLabel, space } from '../../src/lib/theme';
+import { fonts, sentimentLabel, space, type, useTheme } from '../../src/lib/theme';
 import type { Incident } from '../../src/lib/types';
 import { useData } from '../../src/state/store';
 
@@ -16,16 +16,14 @@ export default function ReporteeDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const navigation = useNavigation();
+  const { c } = useTheme();
   const { reportees, incidents, oneOnOnes, logOneOnOne } = useData();
 
   const reportee = reportees.find((r) => r.id === id) ?? null;
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const mine = useMemo(
-    () => incidents.filter((i) => i.reportee_id === id),
-    [incidents, id],
-  );
+  const mine = useMemo(() => incidents.filter((i) => i.reportee_id === id), [incidents, id]);
   const undiscussed = useMemo(() => mine.filter((i) => !i.discussed_at), [mine]);
   const lastOneOnOne = useMemo(
     () => oneOnOnes.find((o) => o.reportee_id === id) ?? null,
@@ -41,8 +39,8 @@ export default function ReporteeDetail() {
 
   if (!reportee) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.missing}>This person is no longer available.</Text>
+      <View style={[styles.center, { backgroundColor: c.paper }]}>
+        <Text style={[type.prose, { color: c.inkFaint }]}>This person is no longer available.</Text>
       </View>
     );
   }
@@ -66,12 +64,7 @@ export default function ReporteeDetail() {
         setBusy(false);
       }
     };
-
-    const message = `This marks ${pluralize(
-      undiscussed.length,
-      'entry',
-      'entries',
-    )} as discussed.`;
+    const message = `This marks ${pluralize(undiscussed.length, 'entry', 'entries')} as discussed.`;
 
     if (Platform.OS === 'web') {
       if (typeof window === 'undefined' || window.confirm(message)) void run();
@@ -84,94 +77,84 @@ export default function ReporteeDetail() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Card style={styles.header}>
+    <ScrollView style={{ backgroundColor: c.paper }} contentContainerStyle={styles.content}>
+      <View style={styles.head}>
         <Avatar name={reportee.name} size={52} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{reportee.name}</Text>
-          {reportee.role ? <Text style={styles.role}>{reportee.role}</Text> : null}
-          <Text style={styles.meta}>
-            {lastOneOnOne
-              ? `Last 1:1 ${relativeTime(lastOneOnOne.held_at)}`
-              : 'No 1:1 logged yet'}
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={[type.title, { color: c.ink }]}>{reportee.name}</Text>
+          {reportee.role ? (
+            <Text style={[type.body, { color: c.inkSoft }]}>{reportee.role}</Text>
+          ) : null}
+          <Text style={[type.meta, { color: c.inkFaint }]}>
+            {lastOneOnOne ? `LAST 1:1 ${relativeTime(lastOneOnOne.held_at).toUpperCase()}` : 'NO 1:1 LOGGED'}
           </Text>
         </View>
-      </Card>
+      </View>
+      <Rule strong />
 
       {mine.length > 0 ? (
-        <Card style={{ gap: space.md }}>
-          <View style={styles.statRow}>
-            <Stat label="Entries" value={String(mine.length)} />
-            <Stat label="Wins" value={String(counts.positive)} tint={colors.positive} />
-            <Stat label="Concerns" value={String(counts.concern)} tint={colors.concern} />
-            <Stat
-              label="Avg impact"
+        <View style={{ gap: space.lg }}>
+          <View style={styles.figures}>
+            <Figure value={String(mine.length)} label="Entries" />
+            <Figure value={String(counts.positive)} label="Wins" tint={c.positive} />
+            <Figure value={String(counts.concern)} label="Concerns" tint={c.concern} />
+            <Figure
               value={(mine.reduce((s, i) => s + i.severity, 0) / mine.length).toFixed(1)}
+              label="Avg impact"
             />
           </View>
-          <SentimentBar counts={counts} height={10} />
+          <SentimentBar counts={counts} height={6} />
           <Legend />
-        </Card>
+        </View>
       ) : null}
 
-      <View style={styles.block}>
-        <SectionHeader title={`1:1 prep · ${undiscussed.length} to cover`} />
+      <Section title={`1:1 prep · ${undiscussed.length} to cover`}>
         {undiscussed.length === 0 ? (
-          <Card>
-            <Text style={styles.hint}>
-              Nothing new since the last 1:1. Capture as things happen and this fills itself in.
-            </Text>
-          </Card>
+          <Text style={[type.prose, { color: c.inkSoft }]}>
+            Nothing new since the last 1:1. Capture as things happen and this fills itself in.
+          </Text>
         ) : (
-          <Card style={{ gap: space.md }}>
-            <Text style={styles.brief}>{brief}</Text>
+          <View style={{ gap: space.lg }}>
+            <Text style={[styles.brief, { color: c.inkSoft }]}>{brief}</Text>
             <Button
-              title={copied ? 'Copied ✓' : 'Copy talking points'}
+              title={copied ? 'Copied' : 'Copy talking points'}
               variant="secondary"
               onPress={copyBrief}
             />
             <Button title="Log 1:1 as held" onPress={markHeld} loading={busy} />
-          </Card>
+          </View>
         )}
-      </View>
+      </Section>
 
       {themes.length > 0 ? (
-        <View style={styles.block}>
-          <SectionHeader title="Recurring themes" />
-          <Card>
-            <RankedBars data={themes} />
-          </Card>
-        </View>
+        <Section title="Recurring themes">
+          <RankedBars data={themes} />
+        </Section>
       ) : null}
 
-      <View style={styles.block}>
-        <SectionHeader title="History" />
+      <Section title="History">
         {mine.length === 0 ? (
-          <EmptyState title="Nothing captured yet" body={`Log the first note about ${reportee.name.split(' ')[0]}.`} />
+          <EmptyState
+            title="Nothing captured yet"
+            body={`Log the first note about ${reportee.name.split(' ')[0]}.`}
+          />
         ) : (
-          <Card style={{ padding: space.xs }}>
-            {mine.map((i) => (
-              <IncidentRow
-                key={i.id}
-                incident={i}
-                reporteeName={reportee.name}
-                showAvatar={false}
-                onPress={() => router.push({ pathname: '/incident/[id]', params: { id: i.id } })}
-              />
+          <View>
+            {mine.map((i, idx) => (
+              <View key={i.id}>
+                {idx > 0 ? <Rule /> : null}
+                <IncidentRow
+                  incident={i}
+                  reporteeName={reportee.name}
+                  showName={false}
+                  onPress={() => router.push({ pathname: '/incident/[id]', params: { id: i.id } })}
+                />
+              </View>
             ))}
-          </Card>
+          </View>
         )}
-      </View>
+      </Section>
     </ScrollView>
-  );
-}
-
-function Stat({ label, value, tint }: { label: string; value: string; tint?: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={[styles.statValue, tint ? { color: tint } : null]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
   );
 }
 
@@ -199,42 +182,20 @@ function buildBrief(name: string, items: Incident[], since: string | null): stri
     }
     lines.push('');
   }
-
   return lines.join('\n').trim();
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
   content: {
-    padding: space.lg,
+    padding: space.xl,
     paddingBottom: space.xxl,
-    gap: space.lg,
+    gap: space.xl,
     maxWidth: 720,
     width: '100%',
     alignSelf: 'center',
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-    padding: space.xl,
-  },
-  missing: { color: colors.textDim, fontSize: 15 },
-  header: { flexDirection: 'row', gap: space.md, alignItems: 'center' },
-  name: { color: colors.text, fontSize: 20, fontWeight: '800' },
-  role: { color: colors.textDim, fontSize: 14, marginTop: 2 },
-  meta: { color: colors.textFaint, fontSize: 12, marginTop: 4 },
-  block: { gap: space.sm },
-  statRow: { flexDirection: 'row', gap: space.md },
-  stat: { flex: 1, gap: 2 },
-  statValue: { color: colors.text, fontSize: 22, fontWeight: '800' },
-  statLabel: { color: colors.textFaint, fontSize: 11 },
-  hint: { color: colors.textDim, fontSize: 13, lineHeight: 19 },
-  brief: {
-    color: colors.textDim,
-    fontSize: 13,
-    lineHeight: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
+  head: { flexDirection: 'row', gap: space.lg, alignItems: 'center' },
+  figures: { flexDirection: 'row', gap: space.md },
+  brief: { fontFamily: fonts.mono, fontSize: 12, lineHeight: 20 },
 });

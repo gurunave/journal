@@ -1,15 +1,17 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar, Button, Card, Field, SectionHeader } from '../../src/components/ui';
+import { Avatar, Button, Chip, Field, Rule, Section } from '../../src/components/ui';
 import { pluralize, relativeTime } from '../../src/lib/format';
-import { colors, radius, space } from '../../src/lib/theme';
+import { space, type, useTheme } from '../../src/lib/theme';
 import { useAuth } from '../../src/state/auth';
 import { useData } from '../../src/state/store';
 
 export default function Team() {
   const router = useRouter();
+  const { c } = useTheme();
   const { user, signOut } = useAuth();
   const {
     reportees,
@@ -72,173 +74,153 @@ export default function Team() {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.block}>
-        <SectionHeader title="Add a reportee" />
-        <Card style={{ gap: space.md }}>
-          <Field label="Name" value={name} onChangeText={setName} placeholder="Full name" />
-          <Field
-            label="Role (optional)"
-            value={role}
-            onChangeText={setRole}
-            placeholder="e.g. Backend Engineer"
-            onSubmitEditing={onAdd}
-          />
-          <Button title="Add" onPress={onAdd} loading={busy} disabled={!name.trim()} />
-        </Card>
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.paper }} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.masthead}>
+          <Text style={[type.eyebrow, { color: c.inkFaint }]}>
+            {pluralize(visible.length, 'PERSON', 'PEOPLE').toUpperCase()}
+          </Text>
+          <Text style={[type.display, { color: c.ink }]}>Team</Text>
+        </View>
+        <Rule strong />
 
-      <View style={styles.block}>
-        <SectionHeader
-          title={`Team · ${visible.length}`}
-          action={
+        <Section
+          title="Roster"
+          right={
             <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>Show archived</Text>
+              <Text style={[type.meta, { color: c.inkFaint }]}>ARCHIVED</Text>
               <Switch
                 value={showArchived}
                 onValueChange={setShowArchived}
-                trackColor={{ true: colors.accent, false: colors.border }}
+                trackColor={{ true: c.accent, false: c.rule }}
               />
             </View>
           }
-        />
-        {visible.length === 0 ? (
-          <Card>
-            <Text style={styles.hint}>No one added yet.</Text>
-          </Card>
-        ) : (
-          <Card style={{ padding: 0 }}>
-            {visible.map((r, idx) => {
-              const last = lastByReportee.get(r.id);
-              return (
-                <Pressable
-                  key={r.id}
-                  onPress={() => router.push({ pathname: '/reportee/[id]', params: { id: r.id } })}
-                  style={({ pressed }) => [
-                    styles.personRow,
-                    idx > 0 && styles.personRowBorder,
-                    pressed && { backgroundColor: colors.surfaceAlt },
-                  ]}
-                >
-                  <Avatar name={r.name} size={40} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.personName, r.archived && { color: colors.textFaint }]}>
-                      {r.name}
-                      {r.archived ? ' · archived' : ''}
-                    </Text>
-                    <Text style={styles.personMeta}>
-                      {r.role ? `${r.role} · ` : ''}
-                      {pluralize(countByReportee.get(r.id) ?? 0, 'entry', 'entries')}
-                      {last ? ` · last ${relativeTime(last)}` : ''}
-                    </Text>
+        >
+          {visible.length === 0 ? (
+            <Text style={[type.prose, { color: c.inkFaint }]}>No one added yet.</Text>
+          ) : (
+            <View>
+              {visible.map((r, idx) => {
+                const last = lastByReportee.get(r.id);
+                return (
+                  <View key={r.id}>
+                    {idx > 0 ? <Rule /> : null}
+                    <Pressable
+                      onPress={() => router.push({ pathname: '/reportee/[id]', params: { id: r.id } })}
+                      style={({ pressed }) => [
+                        styles.personRow,
+                        pressed && { backgroundColor: c.sunken },
+                      ]}
+                    >
+                      <Avatar name={r.name} size={38} />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text
+                          style={[type.heading, { color: r.archived ? c.inkFaint : c.ink }]}
+                          numberOfLines={1}
+                        >
+                          {r.name}
+                        </Text>
+                        <Text style={[type.meta, { color: c.inkFaint }]}>
+                          {r.role ? `${r.role} · ` : ''}
+                          {pluralize(countByReportee.get(r.id) ?? 0, 'entry', 'entries')}
+                          {last ? ` · last ${relativeTime(last)}` : ''}
+                        </Text>
+                      </View>
+                      <Pressable
+                        hitSlop={10}
+                        onPress={() => void updateReportee(r.id, { archived: !r.archived })}
+                      >
+                        <Text style={[type.eyebrow, { color: c.accent }]}>
+                          {r.archived ? 'RESTORE' : 'ARCHIVE'}
+                        </Text>
+                      </Pressable>
+                    </Pressable>
                   </View>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => void updateReportee(r.id, { archived: !r.archived })}
-                  >
-                    <Text style={styles.rowAction}>{r.archived ? 'Restore' : 'Archive'}</Text>
-                  </Pressable>
-                </Pressable>
-              );
-            })}
-          </Card>
-        )}
-      </View>
+                );
+              })}
+            </View>
+          )}
+        </Section>
 
-      <View style={styles.block}>
-        <SectionHeader title={`Themes · ${categories.length}`} />
-        <Card style={{ gap: space.md }}>
-          <Text style={styles.hint}>
+        <Section title="Add someone">
+          <View style={{ gap: space.lg }}>
+            <Field label="Name" value={name} onChangeText={setName} placeholder="Full name" />
+            <Field
+              label="Role"
+              value={role}
+              onChangeText={setRole}
+              placeholder="Optional"
+              onSubmitEditing={onAdd}
+            />
+            <Button title="Add to roster" onPress={onAdd} loading={busy} disabled={!name.trim()} />
+          </View>
+        </Section>
+
+        <Section title={`Themes · ${categories.length}`}>
+          <Text style={[type.prose, { color: c.inkSoft }]}>
             Themes are the one-tap tags on the capture screen. Keep the list short so picking one
             stays instant.
           </Text>
           <View style={styles.tagRow}>
-            {categories.map((c) => (
-              <View key={c.id} style={styles.tag}>
-                <Text style={styles.tagText}>{c.label}</Text>
-              </View>
+            {categories.map((x) => (
+              <Chip key={x.id} label={x.label} />
             ))}
           </View>
-          <Field
-            value={newCategory}
-            onChangeText={setNewCategory}
-            placeholder="Add a theme"
-            onSubmitEditing={onAddCategory}
-            returnKeyType="done"
-          />
-          <Button
-            title="Add theme"
-            variant="secondary"
-            onPress={onAddCategory}
-            disabled={!newCategory.trim()}
-          />
-        </Card>
-      </View>
+          <View style={{ gap: space.lg }}>
+            <Field
+              value={newCategory}
+              onChangeText={setNewCategory}
+              placeholder="Add a theme"
+              onSubmitEditing={onAddCategory}
+              returnKeyType="done"
+            />
+            <Button
+              title="Add theme"
+              variant="secondary"
+              onPress={onAddCategory}
+              disabled={!newCategory.trim()}
+            />
+          </View>
+        </Section>
 
-      <View style={styles.block}>
-        <SectionHeader title="Account" />
-        <Card style={{ gap: space.md }}>
-          <Text style={styles.hint}>Signed in as {user?.email ?? 'unknown'}</Text>
-          <Text style={styles.hint}>
-            {pendingCount === 0
-              ? 'Everything is synced.'
-              : `${pendingCount} entr${pendingCount === 1 ? 'y' : 'ies'} waiting to sync${
-                  syncing ? ' (in progress)' : ''
-                }.`}
-          </Text>
-          {lastSyncError ? <Text style={styles.error}>Last sync error: {lastSyncError}</Text> : null}
-          {pendingCount > 0 ? (
-            <Button title="Retry sync now" variant="secondary" onPress={() => void flush()} />
-          ) : null}
-          <Button title="Sign out" variant="danger" onPress={() => void signOut()} />
-        </Card>
-      </View>
-    </ScrollView>
+        <Section title="Account">
+          <View style={{ gap: space.md }}>
+            <Text style={[type.prose, { color: c.inkSoft }]}>{user?.email ?? 'unknown'}</Text>
+            <Text style={[type.meta, { color: c.inkFaint }]}>
+              {pendingCount === 0
+                ? 'Everything is synced.'
+                : `${pluralize(pendingCount, 'entry', 'entries')} waiting to sync${
+                    syncing ? ' · in progress' : ''
+                  }.`}
+            </Text>
+            {lastSyncError ? (
+              <Text style={[type.small, { color: c.danger }]}>Last sync error: {lastSyncError}</Text>
+            ) : null}
+          </View>
+          <View style={{ gap: space.md }}>
+            {pendingCount > 0 ? (
+              <Button title="Retry sync now" variant="secondary" onPress={() => void flush()} />
+            ) : null}
+            <Button title="Sign out" variant="danger" onPress={() => void signOut()} />
+          </View>
+        </Section>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
   content: {
-    padding: space.lg,
+    padding: space.xl,
     paddingBottom: space.xxl,
     gap: space.xl,
-    maxWidth: 640,
+    maxWidth: 620,
     width: '100%',
     alignSelf: 'center',
   },
-  block: { gap: space.sm },
-  personRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    padding: space.lg,
-    borderRadius: radius.lg,
-  },
-  personRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    borderRadius: 0,
-  },
-  personName: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  personMeta: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
-  rowAction: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  masthead: { gap: space.sm },
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.lg },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  switchLabel: { color: colors.textFaint, fontSize: 12 },
-  hint: { color: colors.textDim, fontSize: 13, lineHeight: 19 },
-  error: { color: colors.danger, fontSize: 13 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  tag: {
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    paddingHorizontal: space.md,
-    paddingVertical: 5,
-  },
-  tagText: { color: colors.textDim, fontSize: 13 },
 });

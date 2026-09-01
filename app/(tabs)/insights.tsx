@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Legend, RankedBars, SentimentBar, TrendBars } from '../../src/components/charts';
-import { Avatar, Card, Chip, EmptyState, SectionHeader } from '../../src/components/ui';
+import { Figure, Legend, RankedBars, SentimentBar, TrendBars } from '../../src/components/charts';
+import { Chip, EmptyState, Rule, Section } from '../../src/components/ui';
 import {
   RANGES,
   countCategories,
@@ -11,15 +12,16 @@ import {
   staleReportees,
   statsByReportee,
   weeklyTrend,
+  withinRange,
   type RangeKey,
 } from '../../src/lib/analytics';
 import { relativeTime } from '../../src/lib/format';
-import { colors, radius, space } from '../../src/lib/theme';
-import { withinRange } from '../../src/lib/analytics';
+import { space, type, useTheme } from '../../src/lib/theme';
 import { useData } from '../../src/state/store';
 
 export default function Insights() {
   const router = useRouter();
+  const { c } = useTheme();
   const { incidents, activeReportees } = useData();
   const [range, setRange] = useState<RangeKey>('90d');
 
@@ -30,109 +32,105 @@ export default function Insights() {
   const trend = useMemo(() => weeklyTrend(scoped, 12), [scoped]);
   const stale = useMemo(() => staleReportees(stats, 21), [stats]);
 
+  const avgImpact = scoped.length
+    ? (scoped.reduce((s, i) => s + i.severity, 0) / scoped.length).toFixed(1)
+    : '—';
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
-        {RANGES.map((r) => (
-          <Chip
-            key={r.key}
-            compact
-            label={r.label}
-            selected={range === r.key}
-            onPress={() => setRange(r.key)}
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.paper }} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.masthead}>
+          <Text style={[type.eyebrow, { color: c.inkFaint }]}>WHAT THE RECORD SHOWS</Text>
+          <Text style={[type.display, { color: c.ink }]}>Patterns</Text>
+        </View>
+        <Rule strong />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+        >
+          {RANGES.map((r) => (
+            <Chip
+              key={r.key}
+              label={r.label}
+              selected={range === r.key}
+              onPress={() => setRange(r.key)}
+            />
+          ))}
+        </ScrollView>
+
+        {scoped.length === 0 ? (
+          <EmptyState
+            title="Nothing in this range"
+            body="Capture a few entries, or widen the range above."
           />
-        ))}
-      </ScrollView>
-
-      {scoped.length === 0 ? (
-        <EmptyState
-          title="No data in this range"
-          body="Capture a few incidents, or widen the time range."
-        />
-      ) : (
-        <>
-          <Card style={{ gap: space.md }}>
-            <View style={styles.statRow}>
-              <Stat label="Entries" value={String(scoped.length)} />
-              <Stat label="Wins" value={String(totals.positive)} tint={colors.positive} />
-              <Stat label="Concerns" value={String(totals.concern)} tint={colors.concern} />
-              <Stat
-                label="Avg impact"
-                value={(scoped.reduce((s, i) => s + i.severity, 0) / scoped.length).toFixed(1)}
-              />
+        ) : (
+          <>
+            <View style={{ gap: space.lg }}>
+              <View style={styles.figures}>
+                <Figure value={String(scoped.length)} label="Entries" />
+                <Figure value={String(totals.positive)} label="Wins" tint={c.positive} />
+                <Figure value={String(totals.concern)} label="Concerns" tint={c.concern} />
+                <Figure value={avgImpact} label="Avg impact" />
+              </View>
+              <SentimentBar counts={totals} height={6} />
+              <Legend />
             </View>
-            <SentimentBar counts={totals} height={10} />
-            <Legend />
-          </Card>
 
-          <View style={styles.block}>
-            <SectionHeader title="Last 12 weeks" />
-            <Card>
+            <Section title="Last 12 weeks">
               <TrendBars data={trend} />
-            </Card>
-          </View>
+            </Section>
 
-          <View style={styles.block}>
-            <SectionHeader title="By person" />
-            <Card style={{ padding: 0 }}>
-              {stats.map((s, idx) => (
-                <Pressable
-                  key={s.reportee.id}
-                  onPress={() =>
-                    router.push({ pathname: '/reportee/[id]', params: { id: s.reportee.id } })
-                  }
-                  style={({ pressed }) => [
-                    styles.personRow,
-                    idx > 0 && styles.personRowBorder,
-                    pressed && { backgroundColor: colors.surfaceAlt },
-                  ]}
-                >
-                  <Avatar name={s.reportee.name} size={38} />
-                  <View style={{ flex: 1, gap: 5 }}>
-                    <View style={styles.personHeader}>
-                      <Text style={styles.personName}>{s.reportee.name}</Text>
-                      <Text style={styles.personMeta}>
-                        {s.total === 0
-                          ? 'nothing logged'
-                          : `${s.total} · avg ${s.avgSeverity.toFixed(1)}`}
-                      </Text>
-                    </View>
-                    <SentimentBar counts={s.counts} height={6} />
-                    <Text style={styles.personMeta}>
-                      {s.lastAt ? `last ${relativeTime(s.lastAt)}` : 'no entries in range'}
-                      {s.undiscussed > 0 ? ` · ${s.undiscussed} not yet discussed` : ''}
-                    </Text>
+            <Section title="By person">
+              <View>
+                {stats.map((s, idx) => (
+                  <View key={s.reportee.id}>
+                    {idx > 0 ? <Rule /> : null}
+                    <Pressable
+                      onPress={() =>
+                        router.push({ pathname: '/reportee/[id]', params: { id: s.reportee.id } })
+                      }
+                      style={({ pressed }) => [
+                        styles.personRow,
+                        pressed && { backgroundColor: c.sunken },
+                      ]}
+                    >
+                      <View style={{ flex: 1, gap: space.sm }}>
+                        <View style={styles.personHead}>
+                          <Text style={[type.heading, { color: c.ink, flex: 1 }]} numberOfLines={1}>
+                            {s.reportee.name}
+                          </Text>
+                          <Text style={[type.meta, { color: c.inkSoft }]}>
+                            {s.total === 0 ? '—' : `${s.total} · ${s.avgSeverity.toFixed(1)}`}
+                          </Text>
+                        </View>
+                        <SentimentBar counts={s.counts} height={4} />
+                        <Text style={[type.meta, { color: c.inkFaint }]}>
+                          {s.lastAt ? `last ${relativeTime(s.lastAt)}` : 'no entries in range'}
+                          {s.undiscussed > 0 ? ` · ${s.undiscussed} to discuss` : ''}
+                        </Text>
+                      </View>
+                    </Pressable>
                   </View>
-                  <Text style={styles.chevron}>›</Text>
-                </Pressable>
-              ))}
-            </Card>
-          </View>
+                ))}
+              </View>
+            </Section>
 
-          <View style={styles.block}>
-            <SectionHeader title="Themes" />
-            <Card>
+            <Section title="Themes">
               <RankedBars data={themes} />
-            </Card>
-          </View>
+            </Section>
 
-          {stale.length > 0 ? (
-            <View style={styles.block}>
-              <SectionHeader title="Quiet for 3+ weeks" />
-              <Card style={{ gap: space.sm }}>
-                <Text style={styles.hint}>
-                  Nothing captured for these people lately. That is usually a gap in your notes, not
-                  in their work.
+            {stale.length > 0 ? (
+              <Section title="Quiet for 3+ weeks">
+                <Text style={[type.prose, { color: c.inkSoft }]}>
+                  Nothing captured about these people lately. That is usually a gap in the record
+                  rather than in their work.
                 </Text>
                 <View style={styles.staleRow}>
                   {stale.map((s) => (
                     <Chip
                       key={s.reportee.id}
-                      compact
                       label={s.reportee.name}
                       onPress={() =>
                         router.push({ pathname: '/reportee/[id]', params: { id: s.reportee.id } })
@@ -140,56 +138,28 @@ export default function Insights() {
                     />
                   ))}
                 </View>
-              </Card>
-            </View>
-          ) : null}
-        </>
-      )}
-    </ScrollView>
-  );
-}
-
-function Stat({ label, value, tint }: { label: string; value: string; tint?: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={[styles.statValue, tint ? { color: tint } : null]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+              </Section>
+            ) : null}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
   content: {
-    padding: space.lg,
+    padding: space.xl,
     paddingBottom: space.xxl,
-    gap: space.lg,
+    gap: space.xl,
     maxWidth: 720,
     width: '100%',
     alignSelf: 'center',
   },
-  chipRow: { gap: space.sm, paddingRight: space.lg },
-  block: { gap: space.sm },
-  statRow: { flexDirection: 'row', gap: space.md },
-  stat: { flex: 1, gap: 2 },
-  statValue: { color: colors.text, fontSize: 22, fontWeight: '800' },
-  statLabel: { color: colors.textFaint, fontSize: 11 },
-  personRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    padding: space.lg,
-    borderRadius: radius.lg,
-  },
-  personRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    borderRadius: 0,
-  },
-  personHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm },
-  personName: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  personMeta: { color: colors.textFaint, fontSize: 12 },
-  chevron: { color: colors.textFaint, fontSize: 22 },
-  hint: { color: colors.textDim, fontSize: 13, lineHeight: 19 },
+  masthead: { gap: space.sm },
+  chipRow: { gap: space.sm, paddingRight: space.xl },
+  figures: { flexDirection: 'row', gap: space.md },
+  personRow: { paddingVertical: space.lg },
+  personHead: { flexDirection: 'row', alignItems: 'baseline', gap: space.md },
   staleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
 });

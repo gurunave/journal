@@ -1,65 +1,69 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, type ColorValue } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../src/lib/theme';
+import { fonts, useTheme } from '../../src/lib/theme';
 
-function TabIcon({ glyph, color }: { glyph: string; color: ColorValue }) {
-  return <Text style={[styles.icon, { color }]}>{glyph}</Text>;
+/**
+ * Tab marks are set in the interface face rather than drawn as icons: the app
+ * is a written record, and a lettered tab reads like an index tab on a ledger.
+ */
+function TabMark({ label, focused }: { label: string; focused: boolean }) {
+  const { c } = useTheme();
+  return (
+    <View style={styles.mark}>
+      <View style={{ height: 2, width: 14, backgroundColor: focused ? c.accent : 'transparent' }} />
+      <Text
+        style={{
+          fontFamily: focused ? fonts.sansSemi : fonts.sans,
+          fontSize: 12,
+          letterSpacing: 0.3,
+          color: focused ? c.ink : c.inkFaint,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
 }
 
 export default function TabsLayout() {
+  const { c } = useTheme();
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700' },
-        headerShadowVisible: false,
-        sceneStyle: { backgroundColor: colors.bg },
+        headerShown: false,
+        sceneStyle: { backgroundColor: c.paper },
+        tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: c.paper,
+          borderTopColor: c.rule,
           borderTopWidth: StyleSheet.hairlineWidth,
+          height: 62,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textFaint,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Capture',
-          headerShown: false,
-          tabBarIcon: ({ color }) => <TabIcon glyph="✎" color={color} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabMark label="Capture" focused={focused} /> }}
       />
       <Tabs.Screen
         name="timeline"
-        options={{
-          title: 'Timeline',
-          tabBarIcon: ({ color }) => <TabIcon glyph="☰" color={color} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabMark label="Record" focused={focused} /> }}
       />
       <Tabs.Screen
         name="insights"
-        options={{
-          title: 'Insights',
-          tabBarIcon: ({ color }) => <TabIcon glyph="◱" color={color} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabMark label="Patterns" focused={focused} /> }}
       />
       <Tabs.Screen
         name="team"
-        options={{
-          title: 'Team',
-          tabBarIcon: ({ color }) => <TabIcon glyph="◎" color={color} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabMark label="Team" focused={focused} /> }}
       />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  icon: { fontSize: 18, lineHeight: 22 },
+  mark: { alignItems: 'center', gap: 6, width: 76 },
 });

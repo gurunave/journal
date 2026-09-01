@@ -2,57 +2,77 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { SentimentCounts } from '../lib/analytics';
-import { colors, radius, sentimentColor, space } from '../lib/theme';
+import { sentimentLabel, space, type, useTheme } from '../lib/theme';
 import { SENTIMENTS } from '../lib/types';
 
-/** Stacked proportion bar: win / note / concern. */
-export function SentimentBar({ counts, height = 8 }: { counts: SentimentCounts; height?: number }) {
+/**
+ * A single ruled band split by sentiment. Drawn as one continuous stroke rather
+ * than separate bars: the proportion is the point, not the segments.
+ */
+export function SentimentBar({ counts, height = 6 }: { counts: SentimentCounts; height?: number }) {
+  const { c, sentiment } = useTheme();
   const total = counts.positive + counts.neutral + counts.concern;
-  if (total === 0) {
-    return <View style={[styles.track, { height, borderRadius: height / 2 }]} />;
-  }
+
+  if (total === 0) return <View style={{ height, backgroundColor: c.rule }} />;
+
   return (
-    <View style={[styles.track, { height, borderRadius: height / 2, flexDirection: 'row' }]}>
+    <View style={{ height, flexDirection: 'row', backgroundColor: c.rule }}>
       {SENTIMENTS.map((s) =>
         counts[s] > 0 ? (
-          <View key={s} style={{ flex: counts[s], backgroundColor: sentimentColor[s] }} />
+          <View key={s} style={{ flex: counts[s], backgroundColor: sentiment[s] }} />
         ) : null,
       )}
     </View>
   );
 }
 
-/** Vertical bars, one per period, stacked by sentiment. */
+/**
+ * Twelve weeks as columns hanging from a baseline, with the scale's top value
+ * printed so the bars name a number rather than gesturing at one.
+ */
 export function TrendBars({
   data,
-  height = 96,
+  height = 88,
 }: {
   data: { label: string; counts: SentimentCounts; total: number }[];
   height?: number;
 }) {
+  const { c, sentiment } = useTheme();
   const max = Math.max(1, ...data.map((d) => d.total));
 
   return (
-    <View>
+    <View style={{ gap: space.sm }}>
+      <View style={styles.scaleRow}>
+        <Text style={[type.meta, { color: c.inkFaint }]}>{max}</Text>
+        <View style={[styles.scaleRule, { backgroundColor: c.rule }]} />
+      </View>
+
       <View style={[styles.trendRow, { height }]}>
         {data.map((d, idx) => (
           <View key={idx} style={styles.trendColumn}>
-            <View style={[styles.bar, { height: Math.max(2, (d.total / max) * height) }]}>
-              {SENTIMENTS.map((s) =>
-                d.counts[s] > 0 ? (
-                  <View key={s} style={{ flex: d.counts[s], backgroundColor: sentimentColor[s] }} />
-                ) : null,
+            <View style={{ height: Math.max(2, (d.total / max) * height), width: '100%' }}>
+              {d.total === 0 ? (
+                <View style={{ flex: 1, backgroundColor: c.rule }} />
+              ) : (
+                SENTIMENTS.map((s) =>
+                  d.counts[s] > 0 ? (
+                    <View key={s} style={{ flex: d.counts[s], backgroundColor: sentiment[s] }} />
+                  ) : null,
+                )
               )}
-              {d.total === 0 ? <View style={{ flex: 1, backgroundColor: colors.border }} /> : null}
             </View>
           </View>
         ))}
       </View>
+
+      <View style={[styles.baseline, { backgroundColor: c.ruleStrong }]} />
+
       <View style={styles.trendRow}>
         {data.map((d, idx) => (
           <View key={idx} style={styles.trendColumn}>
-            <Text numberOfLines={1} style={styles.trendLabel}>
-              {idx % 2 === 0 ? d.label : ''}
+            {/* Every other tick, so labels never collide. */}
+            <Text numberOfLines={1} style={[type.meta, styles.tick, { color: c.inkFaint }]}>
+              {idx % 3 === 0 ? d.label : ''}
             </Text>
           </View>
         ))}
@@ -61,26 +81,24 @@ export function TrendBars({
   );
 }
 
-/** Horizontal ranked bars for categories. */
+/** Ranked list with the count set in mono, aligned as a ledger column. */
 export function RankedBars({ data }: { data: { label: string; count: number }[] }) {
+  const { c } = useTheme();
   const max = Math.max(1, ...data.map((d) => d.count));
+
   return (
-    <View style={{ gap: space.sm }}>
+    <View style={{ gap: space.md }}>
       {data.map((d) => (
-        <View key={d.label} style={{ gap: 4 }}>
+        <View key={d.label} style={{ gap: 6 }}>
           <View style={styles.rankLine}>
-            <Text style={styles.rankLabel} numberOfLines={1}>
+            <Text style={[type.body, { color: c.ink, flex: 1 }]} numberOfLines={1}>
               {d.label}
             </Text>
-            <Text style={styles.rankCount}>{d.count}</Text>
+            <Text style={[type.meta, { color: c.inkSoft }]}>{d.count}</Text>
           </View>
-          <View style={[styles.track, { height: 6, borderRadius: 3 }]}>
+          <View style={{ height: 2, backgroundColor: c.rule }}>
             <View
-              style={{
-                width: `${(d.count / max) * 100}%`,
-                backgroundColor: colors.accent,
-                height: '100%',
-              }}
+              style={{ width: `${(d.count / max) * 100}%`, height: '100%', backgroundColor: c.accent }}
             />
           </View>
         </View>
@@ -90,31 +108,38 @@ export function RankedBars({ data }: { data: { label: string; count: number }[] 
 }
 
 export function Legend() {
+  const { c, sentiment } = useTheme();
   return (
     <View style={styles.legend}>
       {SENTIMENTS.map((s) => (
         <View key={s} style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: sentimentColor[s] }]} />
-          <Text style={styles.legendText}>
-            {s === 'positive' ? 'Win' : s === 'neutral' ? 'Note' : 'Concern'}
-          </Text>
+          <View style={{ width: 10, height: 2, backgroundColor: sentiment[s] }} />
+          <Text style={[type.meta, { color: c.inkFaint }]}>{sentimentLabel[s]}</Text>
         </View>
       ))}
     </View>
   );
 }
 
+/** A figure and its label, set as a ledger cell. */
+export function Figure({ value, label, tint }: { value: string; label: string; tint?: string }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text style={[type.figure, { color: tint ?? c.ink }]}>{value}</Text>
+      <Text style={[type.eyebrow, { color: c.inkFaint }]}>{label.toUpperCase()}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  track: { backgroundColor: colors.surfaceAlt, overflow: 'hidden', width: '100%' },
-  trendRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+  scaleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  scaleRule: { flex: 1, height: StyleSheet.hairlineWidth },
+  trendRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
   trendColumn: { flex: 1, justifyContent: 'flex-end' },
-  bar: { borderRadius: radius.sm, overflow: 'hidden', width: '100%' },
-  trendLabel: { color: colors.textFaint, fontSize: 9, marginTop: 4 },
-  rankLine: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm },
-  rankLabel: { color: colors.textDim, fontSize: 13, flex: 1 },
-  rankCount: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  baseline: { height: StyleSheet.hairlineWidth },
+  tick: { fontSize: 9.5 },
+  rankLine: { flexDirection: 'row', alignItems: 'baseline', gap: space.md },
   legend: { flexDirection: 'row', gap: space.lg },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { color: colors.textFaint, fontSize: 11 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

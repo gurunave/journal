@@ -2,82 +2,87 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { relativeTime } from '../lib/format';
-import { colors, radius, sentimentColor, sentimentIcon, space } from '../lib/theme';
+import { fonts, space, type, useTheme } from '../lib/theme';
 import type { Incident } from '../lib/types';
-import { Avatar } from './ui';
 
+/**
+ * A ledger line: a sentiment stroke in the gutter, the observation as prose,
+ * and its measurements in mono. Deliberately not a card — a stack of these
+ * should read as one continuous record, not a pile of tiles.
+ */
 export function IncidentRow({
   incident,
   reporteeName,
   alsoWith = [],
-  showAvatar = true,
+  showName = true,
   onPress,
 }: {
   incident: Incident;
   reporteeName: string;
   /** Other people the same capture covered, when their rows are collapsed here. */
   alsoWith?: string[];
-  showAvatar?: boolean;
+  showName?: boolean;
   onPress?: () => void;
 }) {
-  const tint = sentimentColor[incident.sentiment];
+  const { c, sentiment } = useTheme();
+  const ink = sentiment[incident.sentiment];
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.surfaceAlt }]}
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: c.sunken }]}
     >
-      {showAvatar ? (
-        <Avatar name={reporteeName} size={36} />
-      ) : (
-        <View style={[styles.dot, { backgroundColor: tint }]} />
-      )}
+      {/* The gutter stroke: this entry's sentiment, at a glance, down the page. */}
+      <View style={[styles.gutter, { backgroundColor: ink }]} />
 
       <View style={styles.body}>
-        <View style={styles.headerLine}>
-          {showAvatar ? (
-            <Text style={styles.name} numberOfLines={1}>
+        <View style={styles.headline}>
+          {showName ? (
+            <Text style={[type.heading, { color: c.ink, flex: 1 }]} numberOfLines={1}>
               {reporteeName}
               {alsoWith.length ? (
-                <Text style={styles.alsoWith}>
-                  {alsoWith.length === 1 ? ` + ${alsoWith[0]}` : ` + ${alsoWith.length} others`}
+                <Text style={[type.body, { color: c.inkFaint }]}>
+                  {alsoWith.length === 1 ? `  with ${alsoWith[0]}` : `  with ${alsoWith.length} others`}
                 </Text>
               ) : null}
             </Text>
-          ) : null}
-          <Text style={[styles.badge, { color: tint }]}>
-            {sentimentIcon[incident.sentiment]} {incident.severity}
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          <Text style={[type.meta, { color: c.inkFaint }]}>
+            {relativeTime(incident.occurred_at)}
           </Text>
-          <View style={{ flex: 1 }} />
-          <Text style={styles.time}>{relativeTime(incident.occurred_at)}</Text>
         </View>
 
-        {incident.themes?.length ? (
-          <View style={styles.themeRow}>
-            {incident.themes.map((theme) => (
-              <Text key={theme} style={styles.theme}>
-                {theme}
-              </Text>
-            ))}
-          </View>
-        ) : null}
-
         {incident.note ? (
-          <Text numberOfLines={2} style={styles.note}>
+          <Text numberOfLines={3} style={[type.prose, { color: c.inkSoft }]}>
             {incident.note}
           </Text>
         ) : (
-          <Text style={[styles.note, { color: colors.textFaint, fontStyle: 'italic' }]}>
+          <Text style={[type.prose, { color: c.inkFaint, fontFamily: fonts.serifItalic }]}>
             No note
           </Text>
         )}
 
-        <View style={styles.metaLine}>
-          {incident.pending ? <Text style={styles.pending}>⟳ queued</Text> : null}
+        <View style={styles.metaRow}>
+          <Text style={[type.meta, { color: ink }]}>
+            {incident.severity}/5
+          </Text>
+          {incident.themes?.length ? (
+            <Text style={[type.meta, { color: c.inkFaint, flex: 1 }]} numberOfLines={1}>
+              {incident.themes.join(' · ')}
+            </Text>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          {incident.pending ? <Text style={[type.meta, { color: c.accent }]}>queued</Text> : null}
           {incident.photo_path || incident.local_photo_uri ? (
-            <Text style={styles.meta}>📎 photo</Text>
+            <Text style={[type.meta, { color: c.inkFaint }]}>photo</Text>
           ) : null}
-          {incident.discussed_at ? <Text style={styles.meta}>✓ discussed</Text> : null}
+          {incident.discussed_at ? (
+            <Text style={[type.meta, { color: c.inkFaint }]}>discussed</Text>
+          ) : null}
         </View>
       </View>
     </Pressable>
@@ -85,32 +90,9 @@ export function IncidentRow({
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    gap: space.md,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.md,
-  },
-  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 7 },
-  body: { flex: 1, gap: 3 },
-  headerLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  name: { color: colors.text, fontWeight: '700', fontSize: 15 },
-  badge: { fontSize: 12, fontWeight: '700' },
-  alsoWith: { color: colors.textFaint, fontWeight: '500', fontSize: 13 },
-  themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 1 },
-  theme: {
-    color: colors.textFaint,
-    fontSize: 11,
-    backgroundColor: colors.surfaceAlt,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-  },
-  time: { color: colors.textFaint, fontSize: 12 },
-  note: { color: colors.textDim, fontSize: 14, lineHeight: 19 },
-  metaLine: { flexDirection: 'row', gap: space.md },
-  meta: { color: colors.textFaint, fontSize: 11 },
-  pending: { color: colors.accent, fontSize: 11, fontWeight: '600' },
+  row: { flexDirection: 'row', gap: space.md, paddingVertical: space.lg },
+  gutter: { width: 2, borderRadius: 1 },
+  body: { flex: 1, gap: 6 },
+  headline: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: 2 },
 });

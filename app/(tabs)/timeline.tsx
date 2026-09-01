@@ -1,16 +1,26 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import {
+  RefreshControl,
+  ScrollView,
+  SectionList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IncidentRow } from '../../src/components/IncidentRow';
-import { Chip, EmptyState, Field } from '../../src/components/ui';
+import { Chip, EmptyState, Rule } from '../../src/components/ui';
 import { dayKey, dayLabel } from '../../src/lib/format';
-import { colors, sentimentLabel, space } from '../../src/lib/theme';
+import { sentimentLabel, space, type, useTheme } from '../../src/lib/theme';
 import { SENTIMENTS, type Incident, type Sentiment } from '../../src/lib/types';
 import { useData } from '../../src/state/store';
 
 export default function Timeline() {
   const router = useRouter();
+  const { c } = useTheme();
   const { incidents, reportees, refresh } = useData();
 
   const [query, setQuery] = useState('');
@@ -36,7 +46,10 @@ export default function Timeline() {
     });
   }, [incidents, query, reporteeFilter, sentimentFilter, nameById]);
 
-  const sections = useMemo(() => groupByDay(collapseGroups(filtered, nameById)), [filtered, nameById]);
+  const sections = useMemo(
+    () => groupByDay(collapseGroups(filtered, nameById)),
+    [filtered, nameById],
+  );
 
   async function onRefresh() {
     setRefreshing(true);
@@ -45,16 +58,24 @@ export default function Timeline() {
   }
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.paper }} edges={['top']}>
+      <View style={styles.masthead}>
+        <Text style={[type.eyebrow, { color: c.inkFaint }]}>
+          {filtered.length} OF {incidents.length} ENTRIES
+        </Text>
+        <Text style={[type.display, { color: c.ink }]}>Record</Text>
+      </View>
+
       <View style={styles.filters}>
-        <Field
+        <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search notes, themes, names…"
+          placeholder="Search notes, themes, names"
+          placeholderTextColor={c.inkFaint}
           autoCapitalize="none"
           returnKeyType="search"
+          style={[type.body, styles.search, { color: c.ink, borderBottomColor: c.rule }]}
         />
-
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -63,17 +84,15 @@ export default function Timeline() {
           {SENTIMENTS.map((s) => (
             <Chip
               key={s}
-              compact
               label={sentimentLabel[s]}
               selected={sentimentFilter === s}
               onPress={() => setSentimentFilter(sentimentFilter === s ? null : s)}
             />
           ))}
-          <View style={styles.chipDivider} />
+          <View style={[styles.chipDivider, { backgroundColor: c.rule }]} />
           {reportees.map((r) => (
             <Chip
               key={r.id}
-              compact
               label={r.name}
               selected={reporteeFilter === r.id}
               onPress={() => setReporteeFilter(reporteeFilter === r.id ? null : r.id)}
@@ -81,6 +100,7 @@ export default function Timeline() {
           ))}
         </ScrollView>
       </View>
+      <Rule strong />
 
       <SectionList
         sections={sections}
@@ -88,17 +108,17 @@ export default function Timeline() {
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.textDim}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.inkFaint} />
         }
         renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <Text style={styles.sectionCount}>{section.data.length}</Text>
+          <View style={styles.dayHeader}>
+            <Text style={[type.eyebrow, { color: c.inkSoft }]}>{section.title.toUpperCase()}</Text>
+            <View style={[styles.dayRule, { backgroundColor: c.rule }]} />
+            <Text style={[type.meta, { color: c.inkFaint }]}>{section.data.length}</Text>
           </View>
+        )}
+        ItemSeparatorComponent={() => (
+          <View style={[styles.itemRule, { backgroundColor: c.rule }]} />
         )}
         renderItem={({ item }) => (
           <IncidentRow
@@ -112,16 +132,16 @@ export default function Timeline() {
         )}
         ListEmptyComponent={
           <EmptyState
-            title={incidents.length === 0 ? 'Nothing captured yet' : 'No matches'}
+            title={incidents.length === 0 ? 'The record is empty' : 'No matches'}
             body={
               incidents.length === 0
-                ? 'Head to Capture and log the first thing you noticed.'
-                : 'Try clearing the search or filters.'
+                ? 'Capture the first thing you noticed and it will appear here.'
+                : 'Try clearing the search or the filters.'
             }
           />
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -129,7 +149,7 @@ type Row = { incident: Incident; alsoWith: string[] };
 
 /**
  * One capture about several people writes a row each. They are the same
- * observation, so the timeline shows them once, naming everyone it covered.
+ * observation, so the record shows them once, naming everyone it covered.
  * Names come from the filtered set, so filtering by a person still reads as
  * being about that person.
  */
@@ -167,24 +187,19 @@ function groupByDay(rows: Row[]): { title: string; data: Row[] }[] {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  filters: { padding: space.lg, paddingBottom: space.sm, gap: space.md },
-  chipRow: { gap: space.sm, paddingRight: space.lg, alignItems: 'center' },
-  chipDivider: {
-    width: StyleSheet.hairlineWidth,
-    alignSelf: 'stretch',
-    backgroundColor: colors.border,
-    marginHorizontal: space.xs,
-  },
-  list: { paddingBottom: space.xxl, paddingHorizontal: space.xs },
-  sectionHeader: {
+  masthead: { paddingHorizontal: space.xl, paddingTop: space.md, gap: space.sm },
+  filters: { padding: space.xl, paddingTop: space.lg, gap: space.lg },
+  search: { paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  chipRow: { gap: space.sm, paddingRight: space.xl, alignItems: 'center' },
+  chipDivider: { width: StyleSheet.hairlineWidth, height: 20, marginHorizontal: space.xs },
+  list: { paddingHorizontal: space.xl, paddingBottom: space.xxl },
+  dayHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: space.lg,
-    paddingTop: space.lg,
+    gap: space.md,
+    paddingTop: space.xl,
     paddingBottom: space.xs,
   },
-  sectionTitle: { color: colors.textFaint, fontSize: 11, fontWeight: '700', letterSpacing: 1.1 },
-  sectionCount: { color: colors.textFaint, fontSize: 11 },
+  dayRule: { flex: 1, height: StyleSheet.hairlineWidth },
+  itemRule: { height: StyleSheet.hairlineWidth, marginLeft: space.md + 2 },
 });

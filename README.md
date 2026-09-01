@@ -30,6 +30,22 @@ Android**, backed by Supabase (Postgres + Auth + Storage).
   talking points you can copy into your notes. Logging the 1:1 as held marks
   those entries discussed so the next prep starts clean.
 
+## Design
+
+The interface is built as a ledger: ink on paper, organised by hairline rules
+rather than stacked cards. Sentiment is carried by archival ink tones —
+verdigris, graphite, oxblood — instead of traffic-light colours, because this is
+a record someone keeps rather than an alert system.
+
+Three typefaces, each with a job: **Newsreader** for what a person wrote and for
+figures worth reading as figures, **IBM Plex Sans** for the interface, **IBM Plex
+Mono** for dates, counts and column headings. Every colour comes from a token in
+`src/lib/theme.ts`; screens never reach for a raw hex, and the palette is
+defined twice so the app follows the system's light or dark appearance.
+
+Elevation is spent on one thing only — the capture composer — so a raised
+surface still means "this is what you are working on".
+
 ## Setup
 
 ### 1. Install
@@ -134,6 +150,8 @@ check, and the app reads them back through short-lived signed URLs.
 ## Verification status
 
 `npm run typecheck` passes, and the app bundles for web, iOS and Android
-(`expo export`). All screens were rendered in a browser against a stubbed
-Supabase client with no console errors. End-to-end behaviour against a live
+(`expo export`). All screens were rendered in a browser in both light and dark
+appearance against a stubbed Supabase client with no console errors, and fifteen
+behaviour checks cover capture, multi-person and multi-theme entry, the searchable
+picker, timeline collapsing and filtering. End-to-end behaviour against a live
 Supabase project has not been exercised — that needs your credentials.

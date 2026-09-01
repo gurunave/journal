@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Field } from '../src/components/ui';
-import { colors, space } from '../src/lib/theme';
+import { Button, Field, Rule } from '../src/components/ui';
+import { space, type, useTheme } from '../src/lib/theme';
 import { useAuth } from '../src/state/auth';
 
 export default function SignIn() {
+  const { c } = useTheme();
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -26,7 +20,7 @@ export default function SignIn() {
     setError(null);
     setNotice(null);
     if (!email.trim() || !password) {
-      setError('Email and password are required.');
+      setError('Email and password are both needed.');
       return;
     }
     setBusy(true);
@@ -36,7 +30,7 @@ export default function SignIn() {
       } else {
         const { needsConfirmation } = await signUp(email, password);
         if (needsConfirmation) {
-          setNotice('Check your inbox to confirm the address, then sign in.');
+          setNotice('Confirm the address from your inbox, then sign in.');
           setMode('signin');
         }
       }
@@ -48,20 +42,23 @@ export default function SignIn() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.paper }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Text style={styles.title}>Journal</Text>
-            <Text style={styles.subtitle}>
-              Capture what your team does, while you still remember it.
+          <View style={{ gap: space.md }}>
+            <Text style={[type.eyebrow, { color: c.inkFaint }]}>A RECORD OF YOUR TEAM</Text>
+            <Text style={[type.display, { color: c.ink }]}>Journal</Text>
+            <Rule strong />
+            <Text style={[type.prose, { color: c.inkSoft }]}>
+              Write down what your people did while you still remember it. Read it back before the
+              1:1.
             </Text>
           </View>
 
-          <View style={{ gap: space.md }}>
+          <View style={{ gap: space.xl }}>
             <Field
               label="Email"
               value={email}
@@ -69,8 +66,8 @@ export default function SignIn() {
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
-              placeholder="you@company.com"
               inputMode="email"
+              placeholder="you@company.com"
             />
             <Field
               label="Password"
@@ -84,8 +81,8 @@ export default function SignIn() {
               returnKeyType="go"
             />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            {error ? <Text style={[type.small, { color: c.danger }]}>{error}</Text> : null}
+            {notice ? <Text style={[type.small, { color: c.positive }]}>{notice}</Text> : null}
 
             <Button
               title={mode === 'signin' ? 'Sign in' : 'Create account'}
@@ -93,12 +90,8 @@ export default function SignIn() {
               loading={busy}
             />
             <Button
-              variant="ghost"
-              title={
-                mode === 'signin'
-                  ? 'No account yet? Create one'
-                  : 'Already have an account? Sign in'
-              }
+              variant="quiet"
+              title={mode === 'signin' ? 'Create an account instead' : 'I already have an account'}
               onPress={() => {
                 setMode(mode === 'signin' ? 'signup' : 'signin');
                 setError(null);
@@ -113,7 +106,6 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
   content: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -123,9 +115,4 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  header: { gap: space.sm },
-  title: { color: colors.text, fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
-  subtitle: { color: colors.textDim, fontSize: 16, lineHeight: 23 },
-  error: { color: colors.danger, fontSize: 14 },
-  notice: { color: colors.positive, fontSize: 14 },
 });

@@ -4,28 +4,51 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { colors, space } from '../src/lib/theme';
+import { useAppFonts } from '../src/lib/fonts';
 import { isSupabaseConfigured } from '../src/lib/supabase';
+import { fonts, space, type, useTheme } from '../src/lib/theme';
 import { AuthProvider, useAuth } from '../src/state/auth';
 import { DataProvider } from '../src/state/store';
 
 export default function RootLayout() {
-  if (!isSupabaseConfigured) return <SetupNotice />;
+  const fontsReady = useAppFonts();
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <Shell fontsReady={fontsReady} />
+    </SafeAreaProvider>
+  );
+}
+
+function Shell({ fontsReady }: { fontsReady: boolean }) {
+  const { c, scheme } = useTheme();
+
+  // Painting the ground before anything else means no white flash on launch.
+  if (!fontsReady) {
+    return (
+      <View style={[styles.center, { backgroundColor: c.paper }]}>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    );
+  }
+
+  if (!isSupabaseConfigured) return <SetupNotice />;
+
+  return (
+    <>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <AuthProvider>
         <DataProvider>
           <RootNavigator />
         </DataProvider>
       </AuthProvider>
-    </SafeAreaProvider>
+    </>
   );
 }
 
 function RootNavigator() {
   const { session, initializing } = useAuth();
+  const { c } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
@@ -38,8 +61,8 @@ function RootNavigator() {
 
   if (initializing) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} />
+      <View style={[styles.center, { backgroundColor: c.paper }]}>
+        <ActivityIndicator color={c.inkFaint} />
       </View>
     );
   }
@@ -47,51 +70,40 @@ function RootNavigator() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700' },
+        headerStyle: { backgroundColor: c.paper },
+        headerTintColor: c.ink,
+        headerTitleStyle: { fontFamily: fonts.serifMedium, fontSize: 18 },
         headerShadowVisible: false,
-        contentStyle: { backgroundColor: colors.bg },
+        headerBackButtonDisplayMode: 'minimal',
+        contentStyle: { backgroundColor: c.paper },
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-      <Stack.Screen name="incident/[id]" options={{ title: 'Incident', presentation: 'modal' }} />
+      <Stack.Screen name="incident/[id]" options={{ title: 'Entry', presentation: 'modal' }} />
       <Stack.Screen name="reportee/[id]" options={{ title: '' }} />
     </Stack>
   );
 }
 
 function SetupNotice() {
+  const { c } = useTheme();
   return (
-    <View style={[styles.center, { padding: space.xl, gap: space.md }]}>
-      <Text style={styles.setupTitle}>Supabase is not configured</Text>
-      <Text style={styles.setupBody}>
-        Copy <Text style={styles.code}>.env.example</Text> to{' '}
-        <Text style={styles.code}>.env</Text>, fill in{' '}
-        <Text style={styles.code}>EXPO_PUBLIC_SUPABASE_URL</Text> and{' '}
-        <Text style={styles.code}>EXPO_PUBLIC_SUPABASE_ANON_KEY</Text> from your project, run the SQL
-        in <Text style={styles.code}>supabase/schema.sql</Text>, then restart with{' '}
-        <Text style={styles.code}>npx expo start -c</Text>.
+    <View style={[styles.center, { backgroundColor: c.paper, padding: space.xl, gap: space.lg }]}>
+      <Text style={[type.eyebrow, { color: c.inkFaint }]}>SETUP REQUIRED</Text>
+      <Text style={[type.title, { color: c.ink, textAlign: 'center' }]}>
+        Supabase is not configured
+      </Text>
+      <Text style={[type.prose, { color: c.inkSoft, textAlign: 'center', maxWidth: 460 }]}>
+        Copy <Text style={{ fontFamily: fonts.mono }}>.env.example</Text> to{' '}
+        <Text style={{ fontFamily: fonts.mono }}>.env</Text>, fill in your project URL and anon key,
+        run the SQL in <Text style={{ fontFamily: fonts.mono }}>supabase/schema.sql</Text>, then
+        restart with <Text style={{ fontFamily: fonts.mono }}>npx expo start -c</Text>.
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-  },
-  setupTitle: { color: colors.text, fontSize: 20, fontWeight: '700', textAlign: 'center' },
-  setupBody: {
-    color: colors.textDim,
-    fontSize: 15,
-    lineHeight: 23,
-    textAlign: 'center',
-    maxWidth: 460,
-  },
-  code: { color: colors.accent, fontFamily: 'monospace' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

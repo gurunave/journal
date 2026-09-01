@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, radius, sentimentColor, sentimentIcon, sentimentLabel, space } from '../lib/theme';
+import { fonts, radius, sentimentLabel, space, type, useTheme } from '../lib/theme';
 import { SENTIMENTS, type Reportee, type Sentiment } from '../lib/types';
 import { Avatar, Chip, Field } from './ui';
 
@@ -26,6 +26,7 @@ export function ReporteePicker({
   /** Reportee ids in most-recently-logged order, used to front-load the strip. */
   recentIds?: string[];
 }) {
+  const { c } = useTheme();
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
 
@@ -53,6 +54,7 @@ export function ReporteePicker({
   }, [ordered, query]);
 
   const selected = reportees.filter((r) => selectedIds.includes(r.id));
+  const asGrid = expanded || query.trim().length > 0;
 
   // The search text is left in place: with multi-select you often want to keep
   // filtering to pick the second person.
@@ -61,26 +63,22 @@ export function ReporteePicker({
     onToggle(id);
   }
 
-  // Searching or expanded: wrapped grid, so every match is reachable without
-  // horizontal scrolling.
-  const asGrid = expanded || query.trim().length > 0;
-
   return (
-    <View style={{ gap: space.sm }}>
+    <View style={{ gap: space.md }}>
       {showSearch ? (
         <View style={styles.searchRow}>
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder={`Search ${reportees.length} people`}
-            placeholderTextColor={colors.textFaint}
+            placeholderTextColor={c.inkFaint}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
             onSubmitEditing={() => {
               if (matches.length === 1) pick(matches[0].id);
             }}
-            style={styles.search}
+            style={[type.body, styles.search, { color: c.ink, borderBottomColor: c.rule }]}
           />
           <Pressable
             onPress={() => {
@@ -89,16 +87,18 @@ export function ReporteePicker({
             }}
             accessibilityRole="button"
             accessibilityLabel={expanded ? 'Collapse team list' : 'Show whole team'}
-            style={({ pressed }) => [styles.expandButton, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [pressed && { opacity: 0.6 }]}
           >
-            <Text style={styles.expandText}>{asGrid ? 'Less' : 'All'}</Text>
+            <Text style={[type.eyebrow, { color: c.accent }]}>{asGrid ? 'LESS' : 'ALL'}</Text>
           </Pressable>
         </View>
       ) : null}
 
       {asGrid ? (
         matches.length === 0 ? (
-          <Text style={styles.noMatch}>No one matches “{query.trim()}”.</Text>
+          <Text style={[type.body, { color: c.inkFaint }]}>
+            No one matches “{query.trim()}”.
+          </Text>
         ) : (
           <View style={styles.grid}>
             {matches.map((r) => (
@@ -130,8 +130,8 @@ export function ReporteePicker({
 
       {/* A selection can scroll out of view, so always name who is picked. */}
       {selected.length > 0 && (selected.length > 1 || reportees.length > SEARCH_THRESHOLD) ? (
-        <Text style={styles.selectedHint}>
-          Selected: {selected.map((r) => r.name).join(', ')}
+        <Text style={[type.meta, { color: c.inkSoft }]}>
+          {selected.map((r) => r.name).join(' · ')}
         </Text>
       ) : null}
     </View>
@@ -147,25 +147,32 @@ function PersonTile({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={reportee.name}
       accessibilityState={{ selected }}
-      style={({ pressed }) => [styles.person, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.person, pressed && { opacity: 0.6 }]}
     >
-      <View style={selected ? styles.personRingActive : styles.personRing}>
-        <Avatar name={reportee.name} size={52} />
-        {selected ? (
-          <View style={styles.tick}>
-            <Text style={styles.tickMark}>✓</Text>
-          </View>
-        ) : null}
+      <View>
+        <Avatar name={reportee.name} size={48} />
+        {/* Selection is an ink underscore beneath the tile, like a marked card. */}
+        <View
+          style={[
+            styles.selectMark,
+            { backgroundColor: selected ? c.accent : 'transparent' },
+          ]}
+        />
       </View>
       <Text
         numberOfLines={1}
-        style={[styles.personName, selected && { color: colors.text, fontWeight: '700' }]}
+        style={[
+          type.small,
+          styles.personName,
+          { color: selected ? c.ink : c.inkSoft, fontFamily: selected ? fonts.sansMedium : fonts.sans },
+        ]}
       >
         {reportee.name.split(' ')[0]}
       </Text>
@@ -180,11 +187,12 @@ export function SentimentPicker({
   value: Sentiment;
   onChange: (s: Sentiment) => void;
 }) {
+  const { c, sentiment } = useTheme();
   return (
     <View style={styles.row}>
       {SENTIMENTS.map((s) => {
         const selected = s === value;
-        const tint = sentimentColor[s];
+        const ink = sentiment[s];
         return (
           <Pressable
             key={s}
@@ -194,16 +202,19 @@ export function SentimentPicker({
             }}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            style={({ pressed }) => [
-              styles.sentiment,
-              selected && { backgroundColor: tint + '22', borderColor: tint },
-              pressed && { opacity: 0.75 },
-            ]}
+            style={({ pressed }) => [styles.sentiment, pressed && { opacity: 0.7 }]}
           >
-            <Text style={[styles.sentimentIcon, { color: selected ? tint : colors.textFaint }]}>
-              {sentimentIcon[s]}
-            </Text>
-            <Text style={[styles.sentimentText, selected && { color: tint }]}>
+            {/* The stroke carries the state; weight and colour, not a filled box. */}
+            <View style={{ height: 3, backgroundColor: selected ? ink : c.rule }} />
+            <Text
+              style={[
+                type.body,
+                {
+                  color: selected ? ink : c.inkSoft,
+                  fontFamily: selected ? fonts.sansSemi : fonts.sans,
+                },
+              ]}
+            >
               {sentimentLabel[s]}
             </Text>
           </Pressable>
@@ -216,14 +227,16 @@ export function SentimentPicker({
 export function SeverityPicker({
   value,
   onChange,
-  tint = colors.accent,
+  tint,
 }: {
   value: number;
   onChange: (n: number) => void;
   tint?: string;
 }) {
+  const { c } = useTheme();
+  const ink = tint ?? c.accent;
   return (
-    <View style={styles.row}>
+    <View style={styles.severityRow}>
       {[1, 2, 3, 4, 5].map((n) => {
         const selected = n === value;
         return (
@@ -236,13 +249,27 @@ export function SeverityPicker({
             accessibilityRole="button"
             accessibilityLabel={`Impact ${n} of 5`}
             accessibilityState={{ selected }}
-            style={({ pressed }) => [
-              styles.severity,
-              selected && { backgroundColor: tint + '26', borderColor: tint },
-              pressed && { opacity: 0.75 },
-            ]}
+            style={({ pressed }) => [styles.severity, pressed && { opacity: 0.7 }]}
           >
-            <Text style={[styles.severityText, selected && { color: tint }]}>{n}</Text>
+            <Text
+              style={[
+                type.figure,
+                {
+                  fontSize: 22,
+                  lineHeight: 28,
+                  color: selected ? ink : c.inkFaint,
+                },
+              ]}
+            >
+              {n}
+            </Text>
+            <View
+              style={{
+                height: selected ? 2 : StyleSheet.hairlineWidth,
+                backgroundColor: selected ? ink : c.rule,
+                width: '100%',
+              }}
+            />
           </Pressable>
         );
       })}
@@ -266,6 +293,7 @@ export function ThemePicker({
   onChange: (next: string[]) => void;
   onCreate?: (label: string) => Promise<void> | void;
 }) {
+  const { c } = useTheme();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -302,26 +330,18 @@ export function ThemePicker({
   }
 
   return (
-    <View style={{ gap: space.sm }}>
+    <View style={{ gap: space.md }}>
       <View style={styles.themeWrap}>
         {themes.map((label) => (
           <Chip
             key={label}
             label={label}
-            compact
             selected={value.includes(label)}
             onPress={() => toggle(label)}
           />
         ))}
         {onCreate && !adding ? (
-          <Pressable
-            onPress={() => setAdding(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Add a new theme"
-            style={({ pressed }) => [styles.addChip, pressed && { opacity: 0.7 }]}
-          >
-            <Text style={styles.addChipText}>＋ New</Text>
-          </Pressable>
+          <Chip label="＋ New" dashed onPress={() => setAdding(true)} />
         ) : null}
       </View>
 
@@ -340,7 +360,7 @@ export function ThemePicker({
             />
           </View>
           <Pressable onPress={commit} disabled={busy} style={styles.addAction}>
-            <Text style={styles.addActionText}>{busy ? '…' : 'Add'}</Text>
+            <Text style={[type.eyebrow, { color: c.accent }]}>{busy ? '…' : 'ADD'}</Text>
           </Pressable>
           <Pressable
             onPress={() => {
@@ -349,7 +369,7 @@ export function ThemePicker({
             }}
             style={styles.addAction}
           >
-            <Text style={[styles.addActionText, { color: colors.textFaint }]}>Cancel</Text>
+            <Text style={[type.eyebrow, { color: c.inkFaint }]}>CANCEL</Text>
           </Pressable>
         </View>
       ) : null}
@@ -358,96 +378,18 @@ export function ThemePicker({
 }
 
 const styles = StyleSheet.create({
-  strip: { gap: space.md, paddingVertical: space.xs, paddingRight: space.lg },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, paddingVertical: space.xs },
-  person: { alignItems: 'center', width: 64, gap: space.xs },
-  personRing: {
-    padding: 2,
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  personRingActive: {
-    padding: 2,
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  personName: { color: colors.textDim, fontSize: 12, maxWidth: 64 },
-  tick: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.bg,
-  },
-  tickMark: { color: colors.bg, fontSize: 11, fontWeight: '900', lineHeight: 13 },
-  searchRow: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
-  search: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: space.md,
-    paddingVertical: 10,
-    color: colors.text,
-    fontSize: 15,
-  },
-  expandButton: {
-    paddingHorizontal: space.md,
-    paddingVertical: 10,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceAlt,
-  },
-  expandText: { color: colors.accent, fontSize: 13, fontWeight: '700' },
-  noMatch: { color: colors.textFaint, fontSize: 13, paddingVertical: space.sm },
-  selectedHint: { color: colors.textFaint, fontSize: 12 },
-  row: { flexDirection: 'row', gap: space.sm },
+  strip: { gap: space.lg, paddingVertical: space.xs, paddingRight: space.lg },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.lg, paddingVertical: space.xs },
+  person: { alignItems: 'center', width: 56, gap: space.sm },
+  selectMark: { height: 2, marginTop: 5, borderRadius: 1 },
+  personName: { maxWidth: 56, textAlign: 'center' },
+  searchRow: { flexDirection: 'row', gap: space.lg, alignItems: 'center' },
+  search: { flex: 1, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  row: { flexDirection: 'row', gap: space.lg },
+  sentiment: { flex: 1, gap: space.sm, paddingBottom: 2 },
+  severityRow: { flexDirection: 'row', gap: space.md },
+  severity: { flex: 1, alignItems: 'center', gap: space.sm },
   themeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  addChip: {
-    paddingHorizontal: space.md,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.accent + '66',
-    borderStyle: 'dashed',
-    backgroundColor: 'transparent',
-  },
-  addChipText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
-  addRow: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
-  addAction: { paddingHorizontal: space.sm, paddingVertical: space.sm },
-  addActionText: { color: colors.accent, fontSize: 14, fontWeight: '700' },
-  sentiment: {
-    flex: 1,
-    minHeight: 56,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  sentimentIcon: { fontSize: 14 },
-  sentimentText: { color: colors.textDim, fontSize: 13, fontWeight: '700' },
-  severity: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  severityText: { color: colors.textDim, fontSize: 17, fontWeight: '700' },
+  addRow: { flexDirection: 'row', gap: space.md, alignItems: 'flex-end' },
+  addAction: { paddingVertical: space.sm },
 });

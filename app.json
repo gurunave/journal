@@ -46,7 +46,9 @@
           "photosPermission": "Attach a photo or screenshot to an incident note.",
           "cameraPermission": "Take a photo to attach to an incident note."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-splash-screen"
     ],
     "experiments": {
       "typedRoutes": true
