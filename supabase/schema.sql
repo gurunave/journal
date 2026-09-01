@@ -36,6 +36,9 @@ create table if not exists public.incidents (
   themes       text[] not null default '{}',
   note         text not null default '',
   photo_path   text,
+  -- One capture about several people writes one row each, sharing a group id,
+  -- so every person keeps their own discussed_at and their own history.
+  group_id     uuid,
   discussed_at timestamptz,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
@@ -53,6 +56,8 @@ create table if not exists public.one_on_ones (
 
 create index if not exists incidents_owner_occurred_idx
   on public.incidents (owner_id, occurred_at desc);
+create index if not exists incidents_group_idx
+  on public.incidents (group_id) where group_id is not null;
 create index if not exists incidents_themes_idx
   on public.incidents using gin (themes);
 create index if not exists incidents_reportee_occurred_idx

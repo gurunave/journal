@@ -9,11 +9,14 @@ import { Avatar } from './ui';
 export function IncidentRow({
   incident,
   reporteeName,
+  alsoWith = [],
   showAvatar = true,
   onPress,
 }: {
   incident: Incident;
   reporteeName: string;
+  /** Other people the same capture covered, when their rows are collapsed here. */
+  alsoWith?: string[];
   showAvatar?: boolean;
   onPress?: () => void;
 }) {
@@ -32,7 +35,16 @@ export function IncidentRow({
 
       <View style={styles.body}>
         <View style={styles.headerLine}>
-          {showAvatar ? <Text style={styles.name}>{reporteeName}</Text> : null}
+          {showAvatar ? (
+            <Text style={styles.name} numberOfLines={1}>
+              {reporteeName}
+              {alsoWith.length ? (
+                <Text style={styles.alsoWith}>
+                  {alsoWith.length === 1 ? ` + ${alsoWith[0]}` : ` + ${alsoWith.length} others`}
+                </Text>
+              ) : null}
+            </Text>
+          ) : null}
           <Text style={[styles.badge, { color: tint }]}>
             {sentimentIcon[incident.sentiment]} {incident.severity}
           </Text>
@@ -85,6 +97,7 @@ const styles = StyleSheet.create({
   headerLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   name: { color: colors.text, fontWeight: '700', fontSize: 15 },
   badge: { fontSize: 12, fontWeight: '700' },
+  alsoWith: { color: colors.textFaint, fontWeight: '500', fontSize: 13 },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 1 },
   theme: {
     color: colors.textFaint,

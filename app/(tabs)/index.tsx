@@ -50,7 +50,7 @@ export default function Capture() {
     loading,
   } = useData();
 
-  const [reporteeId, setReporteeId] = useState<string | null>(null);
+  const [reporteeIds, setReporteeIds] = useState<string[]>([]);
   const [sentiment, setSentiment] = useState<Sentiment>('neutral');
   const [severity, setSeverity] = useState(3);
   const [themes, setThemes] = useState<string[]>([]);
@@ -58,12 +58,12 @@ export default function Capture() {
   const [when, setWhen] = useState<WhenKey>('now');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [justSavedId, setJustSavedId] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState<string[]>([]);
 
   const noteRef = useRef<TextInput>(null);
 
   const categoryLabels = useMemo(() => categories.map((c) => c.label), [categories]);
-  const selected = activeReportees.find((r) => r.id === reporteeId) ?? null;
+  const selected = activeReportees.filter((r) => reporteeIds.includes(r.id));
   const occurredAt = useMemo(() => {
     const minutes = WHEN_OPTIONS.find((w) => w.key === when)?.minutesAgo ?? 0;
     return new Date(Date.now() - minutes * 60_000).toISOString();
@@ -122,11 +122,11 @@ export default function Capture() {
   }
 
   async function save() {
-    if (!reporteeId) return;
+    if (reporteeIds.length === 0) return;
     setSaving(true);
     try {
       const created = await addIncident({
-        reportee_id: reporteeId,
+        reportee_ids: reporteeIds,
         occurred_at: occurredAt,
         sentiment,
         severity,
@@ -134,7 +134,11 @@ export default function Capture() {
         note: note.trim(),
         local_photo_uri: photoUri,
       });
-      setJustSavedId(created.id);
+      setJustSaved(created.map((c) => c.id));
+      // Keeping one person selected makes logging a second thing about them
+      // quick. Keeping a group selected is a trap: the next, unrelated note
+      // would silently land in several people's records.
+      if (reporteeIds.length > 1) setReporteeIds([]);
       resetForm();
     } catch (err) {
       Alert.alert('Could not save', err instanceof Error ? err.message : 'Unknown error');
@@ -181,23 +185,25 @@ export default function Capture() {
             </View>
           </View>
 
-          {justSavedId ? (
+          {justSaved.length > 0 ? (
             <View style={styles.savedBanner}>
-              <Text style={styles.savedText}>Saved</Text>
+              <Text style={styles.savedText}>
+                {justSaved.length > 1 ? `Saved for ${justSaved.length} people` : 'Saved'}
+              </Text>
               <View style={{ flex: 1 }} />
               <Pressable
                 onPress={() => {
-                  const id = justSavedId;
-                  setJustSavedId(null);
-                  void deleteIncident(id);
+                  const ids = justSaved;
+                  setJustSaved([]);
+                  for (const id of ids) void deleteIncident(id);
                 }}
               >
                 <Text style={styles.savedAction}>Undo</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
-                  const id = justSavedId;
-                  setJustSavedId(null);
+                  const [id] = justSaved;
+                  setJustSaved([]);
                   router.push({ pathname: '/incident/[id]', params: { id } });
                 }}
               >
@@ -210,12 +216,19 @@ export default function Capture() {
             <SectionHeader title="Who" />
             <ReporteePicker
               reportees={activeReportees}
-              selectedId={reporteeId}
+              selectedIds={reporteeIds}
               recentIds={recentIds}
-              onSelect={(id) => {
-                setReporteeId(id);
-                setJustSavedId(null);
-                noteRef.current?.focus();
+              onToggle={(id) => {
+                setJustSaved([]);
+                setReporteeIds((prev) => {
+                  const next = prev.includes(id)
+                    ? prev.filter((x) => x !== id)
+                    : [...prev, id];
+                  // Jump to the note on the first pick only, so adding a second
+                  // person does not yank focus away mid-selection.
+                  if (prev.length === 0 && next.length === 1) noteRef.current?.focus();
+                  return next;
+                });
               }}
             />
           </View>
@@ -294,9 +307,9 @@ export default function Capture() {
           </View>
 
           <Button
-            title={selected ? `Save for ${selected.name.split(' ')[0]}` : 'Pick someone first'}
+            title={saveLabel(selected)}
             onPress={save}
-            disabled={!reporteeId}
+            disabled={reporteeIds.length === 0}
             loading={saving}
             style={{ marginTop: space.sm }}
           />
@@ -304,6 +317,15 @@ export default function Capture() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+/** "Save for Asha", "Save for Asha + Vikram", "Save for Asha + 3 others". */
+function saveLabel(selected: { name: string }[]): string {
+  if (selected.length === 0) return 'Pick someone first';
+  const first = selected[0].name.split(' ')[0];
+  if (selected.length === 1) return `Save for ${first}`;
+  if (selected.length === 2) return `Save for ${first} + ${selected[1].name.split(' ')[0]}`;
+  return `Save for ${first} + ${selected.length - 1} others`;
 }
 
 const styles = StyleSheet.create({

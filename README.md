@@ -9,14 +9,17 @@ Android**, backed by Supabase (Postgres + Auth + Storage).
 
 ## What it does
 
-- **Capture** — one screen, no navigation: pick a person, tap a sentiment, tap an
-  impact score, tap any number of themes, type the note, save. Time defaults to *now* with
+- **Capture** — one screen, no navigation: pick one or more people, tap a sentiment,
+  tap an impact score, tap any number of themes, type the note, save. Time defaults to *now* with
   one-tap backdating (1h / 3h / yesterday) for when you get to it later. Optional
   photo attachment.
 - **Offline-first writes** — a capture lands in local storage and on screen
   immediately, then syncs. If the network is down the entry queues and flushes
   when the app next has connectivity or comes back to the foreground. Nothing is
   lost, and entry never blocks on a request.
+- **Shared captures** — an observation about two people writes a row each, so
+  every person keeps their own history and their own `discussed_at`; the rows
+  share a `group_id` and the timeline collapses them into one entry.
 - **Timeline** — every entry grouped by day, searchable, filterable by person and
   sentiment.
 - **Insights** — sentiment split, average impact, a 12-week trend, recurring
@@ -45,10 +48,11 @@ At [supabase.com](https://supabase.com), then:
    new account.
 2. Under **Project Settings → API**, copy the project URL and the `anon` public key.
 
-> Already ran `schema.sql` before themes became multi-select? Run
-> [`supabase/migrations/001_multi_theme.sql`](supabase/migrations/001_multi_theme.sql)
-> once — it adds the `themes` array, carries your existing single theme across,
-> and drops the old column. A fresh `schema.sql` run already has the new shape.
+> Upgrading a database created earlier? Run the files in
+> [`supabase/migrations/`](supabase/migrations) in order — `001` moves themes to an
+> array and carries your existing single theme across, `002` adds the `group_id`
+> used by captures that cover several people. A fresh `schema.sql` run already has
+> the current shape.
 
 Every table is protected by row-level security scoped to `auth.uid()`, so an
 account can only ever read and write its own rows. The `anon` key is designed to
@@ -120,7 +124,7 @@ supabase/migrations/    deltas for a database created before a schema change
 | ------------- | -------------------------------------------------------------- |
 | `reportees`   | Your team. Archivable rather than deletable, so history is kept. |
 | `categories`  | The theme catalogue offered as one-tap chips. New themes can be added inline while capturing. |
-| `incidents`   | One captured observation: who, when, sentiment, impact 1–5, themes (a `text[]`, so an entry can carry several), note, optional photo. |
+| `incidents`   | One captured observation **per person**: who, when, sentiment, impact 1–5, themes (a `text[]`, so an entry can carry several), note, optional photo. Rows written by one capture share a `group_id`. |
 | `one_on_ones` | Checkpoints. Marks everything logged so far as discussed.       |
 
 Photos live in the private `incident-photos` bucket at

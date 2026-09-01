@@ -20,6 +20,15 @@ export default function IncidentDetail() {
   const incident = incidents.find((x) => x.id === id) ?? null;
   const reportee = reportees.find((r) => r.id === incident?.reportee_id) ?? null;
 
+  // Sibling rows from the same capture. Each person keeps their own row, so
+  // editing here only ever changes this person's copy.
+  const alsoWith = useMemo(() => {
+    if (!incident?.group_id) return [];
+    return incidents
+      .filter((x) => x.group_id === incident.group_id && x.id !== incident.id)
+      .map((x) => reportees.find((r) => r.id === x.reportee_id)?.name ?? 'Unknown');
+  }, [incidents, reportees, incident?.group_id, incident?.id]);
+
   const [sentiment, setSentiment] = useState<Sentiment>(incident?.sentiment ?? 'neutral');
   const [severity, setSeverity] = useState(incident?.severity ?? 3);
   const [themes, setThemes] = useState<string[]>(incident?.themes ?? []);
@@ -110,6 +119,12 @@ export default function IncidentDetail() {
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{reportee?.name ?? 'Unknown'}</Text>
           <Text style={styles.stamp}>{fullDateTime(incident.occurred_at)}</Text>
+          {alsoWith.length ? (
+            <Text style={styles.alsoWith}>
+              Same capture also logged for {alsoWith.join(', ')} — edits here apply to{' '}
+              {reportee?.name.split(' ')[0] ?? 'this person'} only.
+            </Text>
+          ) : null}
           {incident.pending ? <Text style={styles.pending}>Queued — will sync</Text> : null}
           {incident.discussed_at ? (
             <Text style={styles.discussed}>
@@ -186,6 +201,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, fontSize: 18, fontWeight: '700' },
   stamp: { color: colors.textFaint, fontSize: 13, marginTop: 2 },
   pending: { color: colors.accent, fontSize: 12, marginTop: 4 },
+  alsoWith: { color: colors.textDim, fontSize: 12, marginTop: 6, lineHeight: 17 },
   discussed: { color: colors.positive, fontSize: 12, marginTop: 4 },
   block: { gap: space.sm },
   photo: { width: '100%', height: 260, borderRadius: 12, backgroundColor: colors.surfaceAlt },

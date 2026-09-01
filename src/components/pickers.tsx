@@ -15,13 +15,14 @@ const SEARCH_THRESHOLD = 8;
 
 export function ReporteePicker({
   reportees,
-  selectedId,
-  onSelect,
+  selectedIds,
+  onToggle,
   recentIds,
 }: {
   reportees: Reportee[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
+  /** One capture can be about several people (a pair who shipped something together). */
+  selectedIds: string[];
+  onToggle: (id: string) => void;
   /** Reportee ids in most-recently-logged order, used to front-load the strip. */
   recentIds?: string[];
 }) {
@@ -51,13 +52,13 @@ export function ReporteePicker({
     );
   }, [ordered, query]);
 
-  const selected = reportees.find((r) => r.id === selectedId) ?? null;
+  const selected = reportees.filter((r) => selectedIds.includes(r.id));
 
+  // The search text is left in place: with multi-select you often want to keep
+  // filtering to pick the second person.
   function pick(id: string) {
     tap();
-    onSelect(id);
-    setQuery('');
-    setExpanded(false);
+    onToggle(id);
   }
 
   // Searching or expanded: wrapped grid, so every match is reachable without
@@ -104,7 +105,7 @@ export function ReporteePicker({
               <PersonTile
                 key={r.id}
                 reportee={r}
-                selected={r.id === selectedId}
+                selected={selectedIds.includes(r.id)}
                 onPress={() => pick(r.id)}
               />
             ))}
@@ -120,16 +121,18 @@ export function ReporteePicker({
             <PersonTile
               key={r.id}
               reportee={r}
-              selected={r.id === selectedId}
+              selected={selectedIds.includes(r.id)}
               onPress={() => pick(r.id)}
             />
           ))}
         </ScrollView>
       )}
 
-      {/* Off-screen selection would otherwise be invisible once the strip scrolls. */}
-      {selected && !asGrid && reportees.length > SEARCH_THRESHOLD ? (
-        <Text style={styles.selectedHint}>Selected: {selected.name}</Text>
+      {/* A selection can scroll out of view, so always name who is picked. */}
+      {selected.length > 0 && (selected.length > 1 || reportees.length > SEARCH_THRESHOLD) ? (
+        <Text style={styles.selectedHint}>
+          Selected: {selected.map((r) => r.name).join(', ')}
+        </Text>
       ) : null}
     </View>
   );
@@ -154,6 +157,11 @@ function PersonTile({
     >
       <View style={selected ? styles.personRingActive : styles.personRing}>
         <Avatar name={reportee.name} size={52} />
+        {selected ? (
+          <View style={styles.tick}>
+            <Text style={styles.tickMark}>✓</Text>
+          </View>
+        ) : null}
       </View>
       <Text
         numberOfLines={1}
@@ -366,6 +374,20 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   personName: { color: colors.textDim, fontSize: 12, maxWidth: 64 },
+  tick: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.bg,
+  },
+  tickMark: { color: colors.bg, fontSize: 11, fontWeight: '900', lineHeight: 13 },
   searchRow: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
   search: {
     flex: 1,

@@ -33,7 +33,8 @@ type DataValue = {
   oneOnOnes: OneOnOne[];
   refresh: () => Promise<void>;
   flush: () => Promise<void>;
-  addIncident: (input: NewIncident) => Promise<Incident>;
+  /** Returns one incident per person the capture covered. */
+  addIncident: (input: NewIncident) => Promise<Incident[]>;
   updateIncident: (id: string, patch: Partial<Incident>) => Promise<void>;
   deleteIncident: (id: string) => Promise<void>;
   addReportee: (name: string, role?: string) => Promise<Reportee>;
@@ -45,7 +46,7 @@ type DataValue = {
 const DataContext = createContext<DataValue | null>(null);
 
 const INCIDENT_COLUMNS =
-  'id, owner_id, reportee_id, occurred_at, sentiment, severity, themes, note, photo_path, discussed_at, created_at, updated_at';
+  'id, owner_id, reportee_id, occurred_at, sentiment, severity, themes, note, photo_path, group_id, discussed_at, created_at, updated_at';
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -165,6 +166,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               sentiment: incident.sentiment,
               severity: incident.severity,
               themes: incident.themes,
+              group_id: incident.group_id,
               note: incident.note,
               photo_path: photoPath,
             },
@@ -253,29 +255,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addIncident = useCallback<DataValue['addIncident']>(
     async (input) => {
       if (!userId) throw new Error('Not signed in');
+      if (input.reportee_ids.length === 0) throw new Error('Pick at least one person');
+
       const now = new Date().toISOString();
-      const incident: Incident = {
+      // One row per person keeps each person's history and discussed_at
+      // independent; the shared group id records that it was one observation.
+      const groupId = input.reportee_ids.length > 1 ? uuid() : null;
+
+      const created: Incident[] = input.reportee_ids.map((reporteeId) => ({
         id: uuid(),
         owner_id: userId,
-        reportee_id: input.reportee_id,
+        reportee_id: reporteeId,
         occurred_at: input.occurred_at,
         sentiment: input.sentiment,
         severity: input.severity,
         themes: input.themes,
         note: input.note,
         photo_path: null,
+        group_id: groupId,
         discussed_at: null,
         created_at: now,
         updated_at: now,
         pending: true,
         local_photo_uri: input.local_photo_uri ?? null,
-      };
+      }));
 
-      // Optimistic first: the entry is on screen before the network is touched.
-      persistIncidents(sortIncidents([incident, ...incidents]));
-      setOutboxPersisted([...outboxRef.current, { kind: 'create', incident }]);
+      // Optimistic first: the entries are on screen before the network is touched.
+      persistIncidents(sortIncidents([...created, ...incidents]));
+      setOutboxPersisted([
+        ...outboxRef.current,
+        ...created.map((incident) => ({ kind: 'create' as const, incident })),
+      ]);
       void flush();
-      return incident;
+      return created;
     },
     [userId, incidents, persistIncidents, setOutboxPersisted, flush],
   );

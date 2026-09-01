@@ -31,6 +31,8 @@ export type Incident = {
   themes: string[];
   note: string;
   photo_path: string | null;
+  /** Set when one capture covered several people; shared by their rows. */
+  group_id: string | null;
   discussed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -50,7 +52,8 @@ export type OneOnOne = {
 };
 
 export type NewIncident = {
-  reportee_id: string;
+  /** One capture can cover several people; each gets its own row. */
+  reportee_ids: string[];
   occurred_at: string;
   sentiment: Sentiment;
   severity: number;

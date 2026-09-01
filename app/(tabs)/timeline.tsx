@@ -36,7 +36,7 @@ export default function Timeline() {
     });
   }, [incidents, query, reporteeFilter, sentimentFilter, nameById]);
 
-  const sections = useMemo(() => groupByDay(filtered), [filtered]);
+  const sections = useMemo(() => groupByDay(collapseGroups(filtered, nameById)), [filtered, nameById]);
 
   async function onRefresh() {
     setRefreshing(true);
@@ -84,7 +84,7 @@ export default function Timeline() {
 
       <SectionList
         sections={sections}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.incident.id}
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled={false}
         refreshControl={
@@ -102,9 +102,12 @@ export default function Timeline() {
         )}
         renderItem={({ item }) => (
           <IncidentRow
-            incident={item}
-            reporteeName={nameById.get(item.reportee_id) ?? 'Unknown'}
-            onPress={() => router.push({ pathname: '/incident/[id]', params: { id: item.id } })}
+            incident={item.incident}
+            reporteeName={nameById.get(item.incident.reportee_id) ?? 'Unknown'}
+            alsoWith={item.alsoWith}
+            onPress={() =>
+              router.push({ pathname: '/incident/[id]', params: { id: item.incident.id } })
+            }
           />
         )}
         ListEmptyComponent={
@@ -122,17 +125,45 @@ export default function Timeline() {
   );
 }
 
-function groupByDay(incidents: Incident[]): { title: string; data: Incident[] }[] {
-  const groups = new Map<string, Incident[]>();
-  for (const i of incidents) {
-    const key = dayKey(i.occurred_at);
+type Row = { incident: Incident; alsoWith: string[] };
+
+/**
+ * One capture about several people writes a row each. They are the same
+ * observation, so the timeline shows them once, naming everyone it covered.
+ * Names come from the filtered set, so filtering by a person still reads as
+ * being about that person.
+ */
+function collapseGroups(incidents: Incident[], nameById: Map<string, string>): Row[] {
+  const seenGroups = new Set<string>();
+  const rows: Row[] = [];
+
+  for (const incident of incidents) {
+    if (!incident.group_id) {
+      rows.push({ incident, alsoWith: [] });
+      continue;
+    }
+    if (seenGroups.has(incident.group_id)) continue;
+    seenGroups.add(incident.group_id);
+
+    const alsoWith = incidents
+      .filter((x) => x.group_id === incident.group_id && x.id !== incident.id)
+      .map((x) => nameById.get(x.reportee_id) ?? 'Unknown');
+    rows.push({ incident, alsoWith });
+  }
+  return rows;
+}
+
+function groupByDay(rows: Row[]): { title: string; data: Row[] }[] {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) {
+    const key = dayKey(row.incident.occurred_at);
     const list = groups.get(key);
-    if (list) list.push(i);
-    else groups.set(key, [i]);
+    if (list) list.push(row);
+    else groups.set(key, [row]);
   }
   return [...groups.entries()]
     .sort((a, b) => b[0].localeCompare(a[0]))
-    .map(([, data]) => ({ title: dayLabel(data[0].occurred_at), data }));
+    .map(([, data]) => ({ title: dayLabel(data[0].incident.occurred_at), data }));
 }
 
 const styles = StyleSheet.create({
