@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Journal",
+    "slug": "incident-journal",
+    "scheme": "incidentjournal",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0D12"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gurunave.incidentjournal",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Attach a photo or screenshot to an incident note.",
+        "NSCameraUsageDescription": "Take a photo to attach to an incident note."
+      }
+    },
+    "android": {
+      "package": "com.gurunave.incidentjournal",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0D12",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach a photo or screenshot to an incident note.",
+          "cameraPermission": "Take a photo to attach to an incident note."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
