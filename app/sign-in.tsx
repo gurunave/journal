@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LogoMark } from '../src/components/Logo';
 import { Button, Field, Rule } from '../src/components/ui';
 import { space, type, useTheme } from '../src/lib/theme';
 import { useAuth } from '../src/state/auth';
@@ -50,7 +51,10 @@ export default function SignIn() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={{ gap: space.md }}>
             <Text style={[type.eyebrow, { color: c.inkFaint }]}>A RECORD OF YOUR TEAM</Text>
-            <Text style={[type.display, { color: c.ink }]}>Journal</Text>
+            <View style={styles.lockup}>
+              <LogoMark size={34} />
+              <Text style={[type.display, { color: c.ink }]}>Journal</Text>
+            </View>
             <Rule strong />
             <Text style={[type.prose, { color: c.inkSoft }]}>
               Write down what your people did while you still remember it. Read it back before the
@@ -106,6 +110,7 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
+  lockup: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   content: {
     flexGrow: 1,
     justifyContent: 'center',
