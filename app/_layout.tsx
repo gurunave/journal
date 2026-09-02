@@ -51,17 +51,24 @@ function Shell({ fontsReady }: { fontsReady: boolean }) {
 }
 
 function RootNavigator() {
-  const { session, initializing } = useAuth();
+  const { session, initializing, recovering } = useAuth();
   const { c } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (initializing) return;
-    const inAuthGroup = segments[0] === 'sign-in';
+    const first = segments[0];
+    const inAuthGroup = first === 'sign-in' || first === 'reset-password';
+    // A recovery link produces a real session, so the ordinary rule would drop
+    // the user into the app with a password they still do not know.
+    if (recovering) {
+      if (first !== 'reset-password') router.replace('/reset-password');
+      return;
+    }
     if (!session && !inAuthGroup) router.replace('/sign-in');
     else if (session && inAuthGroup) router.replace('/');
-  }, [session, initializing, segments, router]);
+  }, [session, initializing, recovering, segments, router]);
 
   if (initializing) {
     return (
@@ -84,6 +91,7 @@ function RootNavigator() {
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Screen name="incident/[id]" options={{ title: 'Entry', presentation: 'modal' }} />
       <Stack.Screen name="reportee/[id]" options={{ title: '' }} />
     </Stack>
