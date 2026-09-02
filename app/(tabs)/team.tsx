@@ -1,13 +1,33 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ThemePicker } from '../../src/components/ThemePicker';
 import { Avatar, Button, Chip, Field, Rule, Section } from '../../src/components/ui';
 import { pluralize, relativeTime } from '../../src/lib/format';
 import { space, type, useTheme } from '../../src/lib/theme';
 import { useAuth } from '../../src/state/auth';
 import { useData } from '../../src/state/store';
+
+/**
+ * React Native's Alert renders nothing useful on web, and this is the one
+ * action in the app that cannot be undone — so it must never proceed on a
+ * dialog the user did not actually see.
+ */
+function confirmDestructive(title: string, body: string, confirmLabel: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(
+      typeof window !== 'undefined' && window.confirm(`${title}\n\n${body}`),
+    );
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
 
 export default function Team() {
   const router = useRouter();
@@ -19,6 +39,8 @@ export default function Team() {
     categories,
     addReportee,
     updateReportee,
+    deleteReportee,
+    reporteeFootprint,
     addCategory,
     pendingCount,
     syncing,
@@ -63,6 +85,30 @@ export default function Team() {
     }
   }
 
+  async function onDelete(person: { id: string; name: string }) {
+    const { incidents: entries, oneOnOnes: checkins, photos } = reporteeFootprint(person.id);
+    const losses = [
+      pluralize(entries, 'entry', 'entries'),
+      checkins > 0 ? pluralize(checkins, '1:1', '1:1s') : null,
+      photos > 0 ? pluralize(photos, 'photo', 'photos') : null,
+    ].filter(Boolean);
+
+    const ok = await confirmDestructive(
+      `Delete ${person.name}?`,
+      entries === 0
+        ? 'There is nothing logged about them yet. This cannot be undone.'
+        : `This permanently deletes ${losses.join(', ')}. It cannot be undone — archive them instead if you want to keep the record.`,
+      'Delete',
+    );
+    if (!ok) return;
+
+    try {
+      await deleteReportee(person.id);
+    } catch (err) {
+      Alert.alert('Could not delete', err instanceof Error ? err.message : 'Unknown error');
+    }
+  }
+
   async function onAddCategory() {
     if (!newCategory.trim()) return;
     try {
@@ -78,7 +124,7 @@ export default function Team() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.masthead}>
           <Text style={[type.eyebrow, { color: c.inkFaint }]}>
-            {pluralize(visible.length, 'PERSON', 'PEOPLE').toUpperCase()}
+            {pluralize(visible.length, 'person', 'people')}
           </Text>
           <Text style={[type.display, { color: c.ink }]}>Team</Text>
         </View>
@@ -88,7 +134,7 @@ export default function Team() {
           title="Roster"
           right={
             <View style={styles.switchRow}>
-              <Text style={[type.meta, { color: c.inkFaint }]}>ARCHIVED</Text>
+              <Text style={[type.meta, { color: c.inkFaint }]}>Archived</Text>
               <Switch
                 value={showArchived}
                 onValueChange={setShowArchived}
@@ -127,14 +173,19 @@ export default function Team() {
                           {last ? ` · last ${relativeTime(last)}` : ''}
                         </Text>
                       </View>
-                      <Pressable
-                        hitSlop={10}
-                        onPress={() => void updateReportee(r.id, { archived: !r.archived })}
-                      >
-                        <Text style={[type.eyebrow, { color: c.accent }]}>
-                          {r.archived ? 'RESTORE' : 'ARCHIVE'}
-                        </Text>
-                      </Pressable>
+                      <View style={styles.rowActions}>
+                        <Pressable
+                          hitSlop={10}
+                          onPress={() => void updateReportee(r.id, { archived: !r.archived })}
+                        >
+                          <Text style={[type.eyebrow, { color: c.accent }]}>
+                            {r.archived ? 'Restore' : 'Archive'}
+                          </Text>
+                        </Pressable>
+                        <Pressable hitSlop={10} onPress={() => void onDelete(r)}>
+                          <Text style={[type.eyebrow, { color: c.danger }]}>Delete</Text>
+                        </Pressable>
+                      </View>
                     </Pressable>
                   </View>
                 );
@@ -184,6 +235,10 @@ export default function Team() {
           </View>
         </Section>
 
+        <Section title="Appearance">
+          <ThemePicker />
+        </Section>
+
         <Section title="Account">
           <View style={{ gap: space.md }}>
             <Text style={[type.prose, { color: c.inkSoft }]}>{user?.email ?? 'unknown'}</Text>
@@ -221,6 +276,7 @@ const styles = StyleSheet.create({
   },
   masthead: { gap: space.sm },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.lg },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
 });

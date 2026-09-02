@@ -4,7 +4,8 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 
 import { fonts, radius, sentimentLabel, space, type, useTheme } from '../lib/theme';
 import { SENTIMENTS, type Reportee, type Sentiment } from '../lib/types';
-import { Avatar, Chip, Field } from './ui';
+import { type IconName } from './icons';
+import { Avatar, Chip, Field, Segmented } from './ui';
 
 function tap() {
   if (Platform.OS !== 'web') void Haptics.selectionAsync();
@@ -89,7 +90,7 @@ export function ReporteePicker({
             accessibilityLabel={expanded ? 'Collapse team list' : 'Show whole team'}
             style={({ pressed }) => [pressed && { opacity: 0.6 }]}
           >
-            <Text style={[type.eyebrow, { color: c.accent }]}>{asGrid ? 'LESS' : 'ALL'}</Text>
+            <Text style={[type.eyebrow, { color: c.accent }]}>{asGrid ? 'Less' : 'All'}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -180,6 +181,12 @@ function PersonTile({
   );
 }
 
+const SENTIMENT_ICON: Record<Sentiment, IconName> = {
+  positive: 'win',
+  neutral: 'note',
+  concern: 'concern',
+};
+
 export function SentimentPicker({
   value,
   onChange,
@@ -187,40 +194,21 @@ export function SentimentPicker({
   value: Sentiment;
   onChange: (s: Sentiment) => void;
 }) {
-  const { c, sentiment } = useTheme();
+  const { sentiment } = useTheme();
   return (
-    <View style={styles.row}>
-      {SENTIMENTS.map((s) => {
-        const selected = s === value;
-        const ink = sentiment[s];
-        return (
-          <Pressable
-            key={s}
-            onPress={() => {
-              tap();
-              onChange(s);
-            }}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            style={({ pressed }) => [styles.sentiment, pressed && { opacity: 0.7 }]}
-          >
-            {/* The stroke carries the state; weight and colour, not a filled box. */}
-            <View style={{ height: 3, backgroundColor: selected ? ink : c.rule }} />
-            <Text
-              style={[
-                type.body,
-                {
-                  color: selected ? ink : c.inkSoft,
-                  fontFamily: selected ? fonts.sansSemi : fonts.sans,
-                },
-              ]}
-            >
-              {sentimentLabel[s]}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <Segmented
+      value={value}
+      tint={sentiment[value]}
+      onChange={(next) => {
+        tap();
+        onChange(next);
+      }}
+      items={SENTIMENTS.map((s) => ({
+        key: s,
+        label: sentimentLabel[s],
+        icon: SENTIMENT_ICON[s],
+      }))}
+    />
   );
 }
 
@@ -233,12 +221,12 @@ export function SeverityPicker({
   onChange: (n: number) => void;
   tint?: string;
 }) {
-  const { c } = useTheme();
+  const { c, shape } = useTheme();
   const ink = tint ?? c.accent;
   return (
     <View style={styles.severityRow}>
       {[1, 2, 3, 4, 5].map((n) => {
-        const selected = n === value;
+        const filled = n <= value;
         return (
           <Pressable
             key={n}
@@ -248,26 +236,17 @@ export function SeverityPicker({
             }}
             accessibilityRole="button"
             accessibilityLabel={`Impact ${n} of 5`}
-            accessibilityState={{ selected }}
-            style={({ pressed }) => [styles.severity, pressed && { opacity: 0.7 }]}
+            accessibilityState={{ selected: n === value }}
+            // The bar is short, so the touch target is the full-height column
+            // around it rather than the bar itself.
+            style={({ pressed }) => [styles.severityColumn, pressed && { opacity: 0.7 }]}
           >
-            <Text
-              style={[
-                type.figure,
-                {
-                  fontSize: 22,
-                  lineHeight: 28,
-                  color: selected ? ink : c.inkFaint,
-                },
-              ]}
-            >
-              {n}
-            </Text>
             <View
               style={{
-                height: selected ? 2 : StyleSheet.hairlineWidth,
-                backgroundColor: selected ? ink : c.rule,
+                height: 11 + n * 4.5,
                 width: '100%',
+                borderRadius: Math.min(shape.control, 5),
+                backgroundColor: filled ? ink : c.sunken,
               }}
             />
           </Pressable>
@@ -360,7 +339,7 @@ export function ThemePicker({
             />
           </View>
           <Pressable onPress={commit} disabled={busy} style={styles.addAction}>
-            <Text style={[type.eyebrow, { color: c.accent }]}>{busy ? '…' : 'ADD'}</Text>
+            <Text style={[type.eyebrow, { color: c.accent }]}>{busy ? '…' : 'Add'}</Text>
           </Pressable>
           <Pressable
             onPress={() => {
@@ -369,7 +348,7 @@ export function ThemePicker({
             }}
             style={styles.addAction}
           >
-            <Text style={[type.eyebrow, { color: c.inkFaint }]}>CANCEL</Text>
+            <Text style={[type.eyebrow, { color: c.inkFaint }]}>Cancel</Text>
           </Pressable>
         </View>
       ) : null}
@@ -387,8 +366,8 @@ const styles = StyleSheet.create({
   search: { flex: 1, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', gap: space.lg },
   sentiment: { flex: 1, gap: space.sm, paddingBottom: 2 },
-  severityRow: { flexDirection: 'row', gap: space.md },
-  severity: { flex: 1, alignItems: 'center', gap: space.sm },
+  severityRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 40 },
+  severityColumn: { flex: 1, justifyContent: 'flex-end', height: '100%' },
   themeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   addRow: { flexDirection: 'row', gap: space.md, alignItems: 'flex-end' },
   addAction: { paddingVertical: space.sm },

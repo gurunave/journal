@@ -51,8 +51,8 @@ if (!key || key.includes('YOUR-ANON-KEY')) {
   bad('EXPO_PUBLIC_SUPABASE_ANON_KEY is not set', 'Settings -> API -> anon / public key');
 } else if (key.length < 40) {
   bad('The anon key looks too short', 'Copy the whole anon key, not the project ref');
-} else if (/service_role/.test(safeJwtPayload(key))) {
-  bad('That is the service_role key, not the anon key', 'Never ship service_role in a client. Use the anon key.');
+} else if (/service_role/.test(safeJwtPayload(key)) || key.startsWith('sb_secret_')) {
+  bad('That is a secret (service_role) key, not the anon key', 'Never ship a secret key in a client. Use the anon or publishable key.');
 }
 
 function safeJwtPayload(jwt) {
@@ -71,17 +71,33 @@ if (results.some(([kind]) => kind === 'fail')) {
 const base = url.replace(/\/$/, '');
 const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
-// 1. Is the project reachable?
-let schema;
+// Ask PostgREST for zero rows of a specific column list. 200 means every
+// column exists; 42703 names one that does not; PGRST205 means no such table.
+// (The OpenAPI root at /rest/v1/ is not usable here — Supabase now restricts
+// it to secret keys, and this check only ever holds the client-side key.)
+async function probe(table, columns) {
+  const select = columns.length ? columns.join(',') : 'id';
+  const res = await fetch(
+    `${base}/rest/v1/${table}?select=${encodeURIComponent(select)}&limit=0`,
+    { headers },
+  );
+  const body = res.ok ? null : await res.json().catch(() => ({}));
+  return { status: res.status, code: body?.code, message: body?.message };
+}
+
+// 1. Is the project reachable, and does the key belong to it?
 try {
-  const res = await fetch(`${base}/rest/v1/`, { headers });
-  if (!res.ok) {
-    bad(`The project answered ${res.status} ${res.statusText}`,
-        res.status === 401 ? 'The anon key does not match this project URL' : 'Check the URL');
+  const res = await fetch(`${base}/auth/v1/settings`, { headers });
+  if (res.status === 401) {
+    bad('The project rejected the key (401)', 'The anon key does not match this project URL');
     report();
     process.exit(1);
   }
-  schema = await res.json();
+  if (!res.ok) {
+    bad(`The project answered ${res.status} ${res.statusText}`, 'Check the URL');
+    report();
+    process.exit(1);
+  }
   ok('Project is reachable and the anon key is accepted');
 } catch (err) {
   bad(`Could not reach ${base} — ${err.message}`, 'Check the URL and your network');
@@ -90,24 +106,41 @@ try {
 }
 
 // 2. Are the tables there, with the current columns?
-const defs = schema.definitions ?? schema.components?.schemas ?? {};
 let needsMigration = null;
 for (const [table, columns] of Object.entries(REQUIRED_TABLES)) {
-  const def = defs[table];
-  if (!def) {
+  const all = await probe(table, columns);
+
+  if (all.status === 404 || all.code === 'PGRST205') {
     bad(`Table "${table}" is missing`, 'Run supabase/schema.sql in the SQL editor');
     continue;
   }
-  const present = Object.keys(def.properties ?? {});
-  const missing = columns.filter((col) => !present.includes(col));
-  if (missing.length === 0) {
+  if (all.status === 401 || all.status === 403) {
+    bad(`Table "${table}" is not readable by the anon role`,
+        'Re-run supabase/schema.sql — it grants the table and adds the RLS policies');
+    continue;
+  }
+  if (all.status === 200) {
     ok(`Table "${table}" has every column the app reads`);
   } else {
-    bad(`Table "${table}" is missing: ${missing.join(', ')}`, migrationHint(missing));
-    if (missing.includes('themes') || missing.includes('group_id')) needsMigration = true;
+    // Something in the column list does not exist; find out what.
+    const missing = [];
+    for (const col of columns) {
+      const one = await probe(table, [col]);
+      if (one.status !== 200) missing.push(col);
+    }
+    if (missing.length === 0) {
+      note(`Table "${table}" answered ${all.status} — ${all.message ?? 'unknown error'}`);
+    } else {
+      bad(`Table "${table}" is missing: ${missing.join(', ')}`, migrationHint(missing));
+      if (missing.includes('themes') || missing.includes('group_id')) needsMigration = true;
+    }
   }
-  if (table === 'incidents' && present.includes('category')) {
-    note('The old "category" column is still present — migration 001 has not been run');
+
+  if (table === 'incidents') {
+    const legacy = await probe(table, ['category']);
+    if (legacy.status === 200) {
+      note('The old "category" column is still present — migration 001 has not been run');
+    }
   }
 }
 

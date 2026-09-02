@@ -72,6 +72,7 @@ create index if not exists one_on_ones_reportee_idx on public.one_on_ones (repor
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();
@@ -195,6 +196,12 @@ begin
   return new;
 end;
 $$;
+
+-- PostgREST exposes every function in the public schema as an RPC. This one
+-- is a SECURITY DEFINER trigger function, so take the callable grant away from
+-- the client roles. Triggers check EXECUTE at CREATE TRIGGER time, not at fire
+-- time, so the signup trigger below keeps working.
+revoke execute on function public.seed_default_categories() from public, anon, authenticated;
 
 drop trigger if exists seed_categories_on_signup on auth.users;
 create trigger seed_categories_on_signup

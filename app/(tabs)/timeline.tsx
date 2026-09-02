@@ -61,7 +61,7 @@ export default function Timeline() {
     <SafeAreaView style={{ flex: 1, backgroundColor: c.paper }} edges={['top']}>
       <View style={styles.masthead}>
         <Text style={[type.eyebrow, { color: c.inkFaint }]}>
-          {filtered.length} OF {incidents.length} ENTRIES
+          {filtered.length} of {incidents.length} entries
         </Text>
         <Text style={[type.display, { color: c.ink }]}>Record</Text>
       </View>
@@ -112,7 +112,7 @@ export default function Timeline() {
         }
         renderSectionHeader={({ section }) => (
           <View style={styles.dayHeader}>
-            <Text style={[type.eyebrow, { color: c.inkSoft }]}>{section.title.toUpperCase()}</Text>
+            <Text style={[type.eyebrow, { color: c.inkSoft }]}>{section.title}</Text>
             <View style={[styles.dayRule, { backgroundColor: c.rule }]} />
             <Text style={[type.meta, { color: c.inkFaint }]}>{section.data.length}</Text>
           </View>

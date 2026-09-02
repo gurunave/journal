@@ -127,7 +127,7 @@ export function Figure({ value, label, tint }: { value: string; label: string; t
   return (
     <View style={{ flex: 1, gap: 2 }}>
       <Text style={[type.figure, { color: tint ?? c.ink }]}>{value}</Text>
-      <Text style={[type.eyebrow, { color: c.inkFaint }]}>{label.toUpperCase()}</Text>
+      <Text style={[type.eyebrow, { color: c.inkFaint }]}>{label}</Text>
     </View>
   );
 }

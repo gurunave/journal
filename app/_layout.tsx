@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAppFonts } from '../src/lib/fonts';
 import { isSupabaseConfigured } from '../src/lib/supabase';
 import { fonts, space, type, useTheme } from '../src/lib/theme';
+import { AppearanceProvider } from '../src/state/appearance';
 import { AuthProvider, useAuth } from '../src/state/auth';
 import { DataProvider } from '../src/state/store';
 
@@ -15,7 +16,10 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Shell fontsReady={fontsReady} />
+      {/* Above Shell: the splash frame and the setup notice need colours too. */}
+      <AppearanceProvider>
+        <Shell fontsReady={fontsReady} />
+      </AppearanceProvider>
     </SafeAreaProvider>
   );
 }
@@ -47,17 +51,24 @@ function Shell({ fontsReady }: { fontsReady: boolean }) {
 }
 
 function RootNavigator() {
-  const { session, initializing } = useAuth();
+  const { session, initializing, recovering } = useAuth();
   const { c } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (initializing) return;
-    const inAuthGroup = segments[0] === 'sign-in';
+    const first = segments[0];
+    const inAuthGroup = first === 'sign-in' || first === 'reset-password';
+    // A recovery link produces a real session, so the ordinary rule would drop
+    // the user into the app with a password they still do not know.
+    if (recovering) {
+      if (first !== 'reset-password') router.replace('/reset-password');
+      return;
+    }
     if (!session && !inAuthGroup) router.replace('/sign-in');
     else if (session && inAuthGroup) router.replace('/');
-  }, [session, initializing, segments, router]);
+  }, [session, initializing, recovering, segments, router]);
 
   if (initializing) {
     return (
@@ -80,6 +91,7 @@ function RootNavigator() {
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Screen name="incident/[id]" options={{ title: 'Entry', presentation: 'modal' }} />
       <Stack.Screen name="reportee/[id]" options={{ title: '' }} />
     </Stack>
@@ -90,7 +102,7 @@ function SetupNotice() {
   const { c } = useTheme();
   return (
     <View style={[styles.center, { backgroundColor: c.paper, padding: space.xl, gap: space.lg }]}>
-      <Text style={[type.eyebrow, { color: c.inkFaint }]}>SETUP REQUIRED</Text>
+      <Text style={[type.eyebrow, { color: c.inkFaint }]}>Setup required</Text>
       <Text style={[type.title, { color: c.ink, textAlign: 'center' }]}>
         Supabase is not configured
       </Text>

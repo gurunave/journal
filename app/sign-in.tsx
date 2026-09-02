@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LogoMark } from '../src/components/Logo';
 import { Button, Field, Rule } from '../src/components/ui';
 import { space, type, useTheme } from '../src/lib/theme';
 import { useAuth } from '../src/state/auth';
 
 export default function SignIn() {
   const { c } = useTheme();
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const { signIn, signUp, sendPasswordReset } = useAuth();
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -19,13 +20,22 @@ export default function SignIn() {
   async function submit() {
     setError(null);
     setNotice(null);
-    if (!email.trim() || !password) {
+    if (!email.trim()) {
+      setError('An email address is needed.');
+      return;
+    }
+    if (mode !== 'reset' && !password) {
       setError('Email and password are both needed.');
       return;
     }
     setBusy(true);
     try {
-      if (mode === 'signin') {
+      if (mode === 'reset') {
+        await sendPasswordReset(email);
+        // Deliberately the same message whether or not the address has an
+        // account: the sign-in page should not confirm who is registered.
+        setNotice('If that address has an account, a reset link is on its way.');
+      } else if (mode === 'signin') {
         await signIn(email, password);
       } else {
         const { needsConfirmation } = await signUp(email, password);
@@ -49,12 +59,16 @@ export default function SignIn() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={{ gap: space.md }}>
-            <Text style={[type.eyebrow, { color: c.inkFaint }]}>A RECORD OF YOUR TEAM</Text>
-            <Text style={[type.display, { color: c.ink }]}>Journal</Text>
+            <Text style={[type.eyebrow, { color: c.inkFaint }]}>A record of your team</Text>
+            <View style={styles.lockup}>
+              <LogoMark size={34} />
+              <Text style={[type.display, { color: c.ink }]}>Journal</Text>
+            </View>
             <Rule strong />
             <Text style={[type.prose, { color: c.inkSoft }]}>
-              Write down what your people did while you still remember it. Read it back before the
-              1:1.
+              {mode === 'reset'
+                ? 'Enter the address you signed up with and we will send a link to set a new password.'
+                : 'Write down what your people did while you still remember it. Read it back before the 1:1.'}
             </Text>
           </View>
 
@@ -69,6 +83,7 @@ export default function SignIn() {
               inputMode="email"
               placeholder="you@company.com"
             />
+            {mode === 'reset' ? null : (
             <Field
               label="Password"
               value={password}
@@ -80,18 +95,32 @@ export default function SignIn() {
               onSubmitEditing={submit}
               returnKeyType="go"
             />
+            )}
 
             {error ? <Text style={[type.small, { color: c.danger }]}>{error}</Text> : null}
             {notice ? <Text style={[type.small, { color: c.positive }]}>{notice}</Text> : null}
 
             <Button
-              title={mode === 'signin' ? 'Sign in' : 'Create account'}
+              title={
+                mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'
+              }
               onPress={submit}
               loading={busy}
             />
+            {mode === 'signin' ? (
+              <Button
+                variant="quiet"
+                title="Forgot your password?"
+                onPress={() => {
+                  setMode('reset');
+                  setError(null);
+                  setNotice(null);
+                }}
+              />
+            ) : null}
             <Button
               variant="quiet"
-              title={mode === 'signin' ? 'Create an account instead' : 'I already have an account'}
+              title={mode === 'signin' ? 'Create an account instead' : 'Back to sign in'}
               onPress={() => {
                 setMode(mode === 'signin' ? 'signup' : 'signin');
                 setError(null);
@@ -106,6 +135,7 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
+  lockup: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   content: {
     flexGrow: 1,
     justifyContent: 'center',
