@@ -12,6 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { Icon, type IconName } from './icons';
 import { avatarInk, fonts, initials, radius, space, type, useTheme } from '../lib/theme';
 
 /** A hairline. The primary organising device — used instead of borders on boxes. */
@@ -148,6 +149,63 @@ export function Chip({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * One track, one raised thumb. Used for any small mutually-exclusive choice,
+ * so Kind and When cannot drift into looking like different kinds of control.
+ */
+export function Segmented<T extends string>({
+  items,
+  value,
+  onChange,
+  tint,
+}: {
+  items: { key: T; label: string; icon?: IconName }[];
+  value: T;
+  onChange: (key: T) => void;
+  tint?: string;
+}) {
+  const { c, shape, scheme } = useTheme();
+  return (
+    <View style={[styles.segTrack, { backgroundColor: c.sunken, borderRadius: shape.control }]}>
+      {items.map((item) => {
+        const on = item.key === value;
+        const ink = tint ?? c.accent;
+        return (
+          <Pressable
+            key={item.key}
+            onPress={() => onChange(item.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            style={({ pressed }) => [
+              styles.segItem,
+              {
+                borderRadius: Math.max(shape.control - 2, 3),
+                backgroundColor: on ? c.raised : 'transparent',
+                shadowOpacity: on && scheme === 'light' ? 0.09 : 0,
+              },
+              pressed && !on && { opacity: 0.6 },
+            ]}
+          >
+            {item.icon ? <Icon name={item.icon} color={on ? ink : c.inkFaint} size={15} /> : null}
+            <Text
+              numberOfLines={1}
+              style={[
+                type.small,
+                {
+                  color: on ? c.ink : c.inkFaint,
+                  fontFamily: on ? fonts.sansMedium : fonts.sans,
+                },
+              ]}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -290,6 +348,18 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 3,
+  },
+  segTrack: { flexDirection: 'row', padding: 3 },
+  segItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    shadowColor: '#000',
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
   },
   chip: {
     paddingHorizontal: space.md,

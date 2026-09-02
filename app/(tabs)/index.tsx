@@ -21,7 +21,8 @@ import {
   SeverityPicker,
   ThemePicker,
 } from '../../src/components/pickers';
-import { Button, Field, Panel, Rule, Section } from '../../src/components/ui';
+import { Icon } from '../../src/components/icons';
+import { Button, Field, Panel, Section, Segmented } from '../../src/components/ui';
 import { fullDateTime } from '../../src/lib/format';
 import { fonts, radius, space, type, useTheme } from '../../src/lib/theme';
 import type { Sentiment } from '../../src/lib/types';
@@ -38,7 +39,7 @@ const WHEN_OPTIONS: { key: WhenKey; label: string; minutesAgo: number }[] = [
 
 export default function Capture() {
   const router = useRouter();
-  const { c, sentiment: sentimentInk } = useTheme();
+  const { c, shape, sentiment: sentimentInk } = useTheme();
   const {
     activeReportees,
     categories,
@@ -176,13 +177,20 @@ export default function Capture() {
           keyboardDismissMode="interactive"
         >
           <View style={styles.masthead}>
-            <Text style={[type.eyebrow, { color: c.inkFaint }]}>
-              {todayCount === 0 ? 'Nothing logged today' : `${todayCount} logged today`}
-              {pendingCount > 0 ? ` · ${pendingCount} queued${syncing ? ' · syncing' : ''}` : ''}
-            </Text>
-            <Text style={[type.display, { color: c.ink }]}>Capture</Text>
+            <View style={{ gap: 2 }}>
+              <Text style={[type.display, { color: c.ink }]}>Capture</Text>
+              <Text style={[type.small, { color: c.inkFaint }]}>
+                {todayCount === 0 ? 'Nothing logged today' : `${todayCount} logged today`}
+                {pendingCount > 0 ? ` · ${pendingCount} queued${syncing ? ' · syncing' : ''}` : ''}
+              </Text>
+            </View>
+            <View style={[styles.stamp, { backgroundColor: c.accentSoft, borderRadius: shape.chip }]}>
+              <Icon name="clock" color={c.accent} size={14} />
+              <Text style={[type.meta, { color: c.accent, fontFamily: fonts.sansMedium }]}>
+                {WHEN_OPTIONS.find((w) => w.key === when)?.label ?? 'Now'}
+              </Text>
+            </View>
           </View>
-          <Rule strong />
 
           {justSaved.length > 0 ? (
             <View style={[styles.saved, { borderColor: c.rule }]}>
@@ -248,7 +256,14 @@ export default function Capture() {
             </View>
 
             <View style={{ gap: space.md }}>
-              <Text style={[type.eyebrow, { color: c.inkFaint }]}>Impact</Text>
+              <View style={styles.labelRow}>
+                <Text style={[type.eyebrow, { color: c.inkFaint }]}>Impact</Text>
+                <Text
+                  style={[type.small, { color: sentimentInk[sentiment], fontFamily: fonts.sansSemi }]}
+                >
+                  {severity} of 5
+                </Text>
+              </View>
               <SeverityPicker
                 value={severity}
                 onChange={setSeverity}
@@ -270,36 +285,11 @@ export default function Capture() {
             title="When"
             right={<Text style={[type.meta, { color: c.inkFaint }]}>{fullDateTime(occurredAt)}</Text>}
           >
-            <View style={styles.whenRow}>
-              {WHEN_OPTIONS.map((w) => {
-                const on = when === w.key;
-                return (
-                  <Pressable
-                    key={w.key}
-                    onPress={() => setWhen(w.key)}
-                    style={({ pressed }) => [styles.when, pressed && { opacity: 0.6 }]}
-                  >
-                    <Text
-                      style={[
-                        type.body,
-                        {
-                          color: on ? c.ink : c.inkFaint,
-                          fontFamily: on ? fonts.sansMedium : fonts.sans,
-                        },
-                      ]}
-                    >
-                      {w.label}
-                    </Text>
-                    <View
-                      style={{
-                        height: on ? 2 : StyleSheet.hairlineWidth,
-                        backgroundColor: on ? c.accent : c.rule,
-                      }}
-                    />
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Segmented
+              value={when}
+              onChange={setWhen}
+              items={WHEN_OPTIONS.map((w) => ({ key: w.key, label: w.label }))}
+            />
           </Section>
 
           {photoUri ? (
@@ -312,16 +302,33 @@ export default function Capture() {
                 </Pressable>
               </View>
             </View>
-          ) : (
-            <Button title="Attach photo" variant="secondary" onPress={onAddPhoto} />
-          )}
+          ) : null}
 
-          <Button
-            title={saveLabel(selected)}
-            onPress={save}
-            disabled={reporteeIds.length === 0}
-            loading={saving}
-          />
+          {/* The commit line: attaching is secondary, so it is a square beside
+              the action rather than a second full-width button competing with it. */}
+          <View style={styles.actions}>
+            {photoUri ? null : (
+              <Pressable
+                onPress={onAddPhoto}
+                accessibilityRole="button"
+                accessibilityLabel="Attach photo"
+                style={({ pressed }) => [
+                  styles.attach,
+                  { backgroundColor: c.sunken, borderRadius: shape.btn },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Icon name="camera" color={c.inkSoft} size={21} />
+              </Pressable>
+            )}
+            <Button
+              title={saveLabel(selected)}
+              onPress={save}
+              disabled={reporteeIds.length === 0}
+              loading={saving}
+              style={{ flex: 1 }}
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -347,7 +354,11 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  masthead: { gap: space.sm },
+  masthead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stamp: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 6 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  attach: { width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },
   saved: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -359,8 +370,6 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     overflow: 'hidden',
   },
-  whenRow: { flexDirection: 'row', gap: space.lg },
-  when: { flex: 1, gap: space.sm, alignItems: 'center' },
   photoRow: { flexDirection: 'row', gap: space.lg, alignItems: 'center' },
   photo: { width: 64, height: 64, borderRadius: radius.sm },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.lg, padding: space.xl },
