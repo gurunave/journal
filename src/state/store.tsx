@@ -39,6 +39,10 @@ type DataValue = {
   deleteIncident: (id: string) => Promise<void>;
   addReportee: (name: string, role?: string) => Promise<Reportee>;
   updateReportee: (id: string, patch: Partial<Reportee>) => Promise<void>;
+  /** Irreversible. Removes the person, every entry about them, their 1:1s and their photos. */
+  deleteReportee: (id: string) => Promise<void>;
+  /** What deleting a person would destroy, for the confirmation. */
+  reporteeFootprint: (id: string) => { incidents: number; oneOnOnes: number; photos: number };
   addCategory: (label: string) => Promise<void>;
   logOneOnOne: (reporteeId: string, notes?: string) => Promise<void>;
 };
@@ -385,6 +389,63 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [userId, reportees],
   );
 
+  const reporteeFootprint = useCallback<DataValue['reporteeFootprint']>(
+    (id) => {
+      const mine = incidents.filter((x) => x.reportee_id === id);
+      return {
+        incidents: mine.length,
+        oneOnOnes: oneOnOnes.filter((o) => o.reportee_id === id).length,
+        photos: mine.filter((x) => x.photo_path || x.local_photo_uri).length,
+      };
+    },
+    [incidents, oneOnOnes],
+  );
+
+  const deleteReportee = useCallback<DataValue['deleteReportee']>(
+    async (id) => {
+      if (!userId) return;
+
+      // Local first, and the outbox before anything else: a queued capture for
+      // this person would otherwise be flushed against a row that no longer
+      // exists, failing the foreign key and sticking in the queue forever.
+      setOutboxPersisted(outboxRef.current.filter((e) => e.incident.reportee_id !== id));
+      persistIncidents(incidents.filter((x) => x.reportee_id !== id));
+      setOneOnOnes((prev) => {
+        const next = prev.filter((o) => o.reportee_id !== id);
+        void writeCache(userId, 'one_on_ones', next);
+        return next;
+      });
+      setReportees((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        void writeCache(userId, 'reportees', next);
+        return next;
+      });
+
+      // Storage has no foreign key, so the cascade does not reach the photos.
+      // Read the paths from the database rather than from local state: an
+      // entry that was never loaded on this device still owns a file.
+      const { data: photoRows, error: photoError } = await supabase
+        .from('incidents')
+        .select('photo_path')
+        .eq('reportee_id', id)
+        .not('photo_path', 'is', null);
+      if (photoError) setLastSyncError(photoError.message);
+      for (const row of photoRows ?? []) {
+        const path = (row as { photo_path: string | null }).photo_path;
+        if (path) await removeIncidentPhoto(path);
+      }
+
+      // incidents.reportee_id and one_on_ones.reportee_id are both
+      // 'on delete cascade', so this one delete takes the rows with it.
+      const { error } = await supabase.from('reportees').delete().eq('id', id);
+      if (error) {
+        setLastSyncError(error.message);
+        throw error;
+      }
+    },
+    [userId, incidents, persistIncidents, setOutboxPersisted],
+  );
+
   const addCategory = useCallback<DataValue['addCategory']>(
     async (label) => {
       if (!userId) return;
@@ -471,6 +532,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       deleteIncident,
       addReportee,
       updateReportee,
+      deleteReportee,
+      reporteeFootprint,
       addCategory,
       logOneOnOne,
     }),
@@ -491,6 +554,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       deleteIncident,
       addReportee,
       updateReportee,
+      deleteReportee,
+      reporteeFootprint,
       addCategory,
       logOneOnOne,
     ],
