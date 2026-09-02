@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAppFonts } from '../src/lib/fonts';
 import { isSupabaseConfigured } from '../src/lib/supabase';
 import { fonts, space, type, useTheme } from '../src/lib/theme';
+import { AppearanceProvider } from '../src/state/appearance';
 import { AuthProvider, useAuth } from '../src/state/auth';
 import { DataProvider } from '../src/state/store';
 
@@ -15,7 +16,10 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Shell fontsReady={fontsReady} />
+      {/* Above Shell: the splash frame and the setup notice need colours too. */}
+      <AppearanceProvider>
+        <Shell fontsReady={fontsReady} />
+      </AppearanceProvider>
     </SafeAreaProvider>
   );
 }
@@ -90,7 +94,7 @@ function SetupNotice() {
   const { c } = useTheme();
   return (
     <View style={[styles.center, { backgroundColor: c.paper, padding: space.xl, gap: space.lg }]}>
-      <Text style={[type.eyebrow, { color: c.inkFaint }]}>SETUP REQUIRED</Text>
+      <Text style={[type.eyebrow, { color: c.inkFaint }]}>Setup required</Text>
       <Text style={[type.title, { color: c.ink, textAlign: 'center' }]}>
         Supabase is not configured
       </Text>

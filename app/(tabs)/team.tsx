@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ThemePicker } from '../../src/components/ThemePicker';
 import { Avatar, Button, Chip, Field, Rule, Section } from '../../src/components/ui';
 import { pluralize, relativeTime } from '../../src/lib/format';
 import { space, type, useTheme } from '../../src/lib/theme';
@@ -78,7 +79,7 @@ export default function Team() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.masthead}>
           <Text style={[type.eyebrow, { color: c.inkFaint }]}>
-            {pluralize(visible.length, 'PERSON', 'PEOPLE').toUpperCase()}
+            {pluralize(visible.length, 'person', 'people')}
           </Text>
           <Text style={[type.display, { color: c.ink }]}>Team</Text>
         </View>
@@ -88,7 +89,7 @@ export default function Team() {
           title="Roster"
           right={
             <View style={styles.switchRow}>
-              <Text style={[type.meta, { color: c.inkFaint }]}>ARCHIVED</Text>
+              <Text style={[type.meta, { color: c.inkFaint }]}>Archived</Text>
               <Switch
                 value={showArchived}
                 onValueChange={setShowArchived}
@@ -132,7 +133,7 @@ export default function Team() {
                         onPress={() => void updateReportee(r.id, { archived: !r.archived })}
                       >
                         <Text style={[type.eyebrow, { color: c.accent }]}>
-                          {r.archived ? 'RESTORE' : 'ARCHIVE'}
+                          {r.archived ? 'Restore' : 'Archive'}
                         </Text>
                       </Pressable>
                     </Pressable>
@@ -182,6 +183,10 @@ export default function Team() {
               disabled={!newCategory.trim()}
             />
           </View>
+        </Section>
+
+        <Section title="Appearance">
+          <ThemePicker />
         </Section>
 
         <Section title="Account">

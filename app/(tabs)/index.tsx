@@ -150,7 +150,7 @@ export default function Capture() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: c.paper }]} edges={['top']}>
         <View style={styles.emptyWrap}>
-          <Text style={[type.eyebrow, { color: c.inkFaint }]}>NOTHING TO WRITE ON</Text>
+          <Text style={[type.eyebrow, { color: c.inkFaint }]}>Nothing to write on</Text>
           <Text style={[type.display, { color: c.ink, textAlign: 'center' }]}>
             Add your team first
           </Text>
@@ -177,8 +177,8 @@ export default function Capture() {
         >
           <View style={styles.masthead}>
             <Text style={[type.eyebrow, { color: c.inkFaint }]}>
-              {todayCount === 0 ? 'NOTHING LOGGED TODAY' : `${todayCount} LOGGED TODAY`}
-              {pendingCount > 0 ? ` · ${pendingCount} QUEUED${syncing ? ' · SYNCING' : ''}` : ''}
+              {todayCount === 0 ? 'Nothing logged today' : `${todayCount} logged today`}
+              {pendingCount > 0 ? ` · ${pendingCount} queued${syncing ? ' · syncing' : ''}` : ''}
             </Text>
             <Text style={[type.display, { color: c.ink }]}>Capture</Text>
           </View>
@@ -197,7 +197,7 @@ export default function Capture() {
                   for (const id of ids) void deleteIncident(id);
                 }}
               >
-                <Text style={[type.eyebrow, { color: c.accent }]}>UNDO</Text>
+                <Text style={[type.eyebrow, { color: c.accent }]}>Undo</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -206,7 +206,7 @@ export default function Capture() {
                   router.push({ pathname: '/incident/[id]', params: { id } });
                 }}
               >
-                <Text style={[type.eyebrow, { color: c.accent }]}>OPEN</Text>
+                <Text style={[type.eyebrow, { color: c.accent }]}>Open</Text>
               </Pressable>
             </View>
           ) : null}
@@ -232,7 +232,7 @@ export default function Capture() {
           {/* The composer is the one raised surface in the app. */}
           <Panel style={{ gap: space.xl }}>
             <View style={{ gap: space.md }}>
-              <Text style={[type.eyebrow, { color: c.inkFaint }]}>WHAT HAPPENED</Text>
+              <Text style={[type.eyebrow, { color: c.inkFaint }]}>What happened</Text>
               <Field
                 ref={noteRef}
                 value={note}
@@ -243,12 +243,12 @@ export default function Capture() {
             </View>
 
             <View style={{ gap: space.md }}>
-              <Text style={[type.eyebrow, { color: c.inkFaint }]}>KIND</Text>
+              <Text style={[type.eyebrow, { color: c.inkFaint }]}>Kind</Text>
               <SentimentPicker value={sentiment} onChange={setSentiment} />
             </View>
 
             <View style={{ gap: space.md }}>
-              <Text style={[type.eyebrow, { color: c.inkFaint }]}>IMPACT</Text>
+              <Text style={[type.eyebrow, { color: c.inkFaint }]}>Impact</Text>
               <SeverityPicker
                 value={severity}
                 onChange={setSeverity}
@@ -308,7 +308,7 @@ export default function Capture() {
               <View style={{ flex: 1, gap: space.sm }}>
                 <Text style={[type.body, { color: c.inkSoft }]}>Photo attached</Text>
                 <Pressable onPress={() => setPhotoUri(null)}>
-                  <Text style={[type.eyebrow, { color: c.accent }]}>REMOVE</Text>
+                  <Text style={[type.eyebrow, { color: c.accent }]}>Remove</Text>
                 </Pressable>
               </View>
             </View>
