@@ -40,7 +40,7 @@ export default function Insights() {
     <SafeAreaView style={{ flex: 1, backgroundColor: c.paper }} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.masthead}>
-          <Text style={[type.eyebrow, { color: c.inkFaint }]}>WHAT THE RECORD SHOWS</Text>
+          <Text style={[type.eyebrow, { color: c.inkFaint }]}>What the record shows</Text>
           <Text style={[type.display, { color: c.ink }]}>Patterns</Text>
         </View>
         <Rule strong />

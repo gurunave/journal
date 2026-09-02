@@ -86,7 +86,7 @@ export default function ReporteeDetail() {
             <Text style={[type.body, { color: c.inkSoft }]}>{reportee.role}</Text>
           ) : null}
           <Text style={[type.meta, { color: c.inkFaint }]}>
-            {lastOneOnOne ? `LAST 1:1 ${relativeTime(lastOneOnOne.held_at).toUpperCase()}` : 'NO 1:1 LOGGED'}
+            {lastOneOnOne ? `Last 1:1 ${relativeTime(lastOneOnOne.held_at)}` : 'No 1:1 logged'}
           </Text>
         </View>
       </View>

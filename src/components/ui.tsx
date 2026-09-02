@@ -41,7 +41,7 @@ export function Eyebrow({
   return (
     <View style={[styles.eyebrowRow, style]}>
       <Text style={[type.eyebrow, { color: c.inkFaint }]}>
-        {typeof children === 'string' ? children.toUpperCase() : children}
+        {children}
       </Text>
       {right ? <View style={styles.eyebrowRight}>{right}</View> : null}
     </View>
@@ -82,7 +82,7 @@ export function Panel({
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { c, scheme } = useTheme();
+  const { c, scheme, shape } = useTheme();
   return (
     <View
       style={[
@@ -90,7 +90,11 @@ export function Panel({
         {
           backgroundColor: c.raised,
           borderColor: c.rule,
-          shadowOpacity: scheme === 'dark' ? 0 : 0.05,
+          borderRadius: shape.card,
+          borderWidth: shape.borderW,
+          shadowOpacity: shape.hard ? 1 : scheme === 'dark' ? 0 : 0.05,
+          shadowRadius: shape.hard ? 0 : 8,
+          shadowOffset: shape.hard ? { width: 3, height: 3 } : { width: 0, height: 2 },
         },
         style,
       ]}
@@ -113,7 +117,7 @@ export function Chip({
   tint?: string;
   dashed?: boolean;
 }) {
-  const { c } = useTheme();
+  const { c, shape } = useTheme();
   const ink = tint ?? c.accent;
   return (
     <Pressable
@@ -123,7 +127,8 @@ export function Chip({
       style={({ pressed }) => [
         styles.chip,
         {
-          borderColor: selected ? ink : c.rule,
+          borderRadius: shape.chip,
+          borderColor: selected ? c.accentSoft : c.rule,
           backgroundColor: selected ? c.accentSoft : 'transparent',
           borderStyle: dashed ? 'dashed' : 'solid',
         },
@@ -161,7 +166,7 @@ export function Button({
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { c } = useTheme();
+  const { c, shape } = useTheme();
   const busy = disabled || loading;
 
   const surface: ViewStyle =
@@ -189,6 +194,7 @@ export function Button({
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.button,
+        { borderRadius: shape.btn },
         surface,
         busy && { opacity: 0.4 },
         pressed && !busy && { opacity: 0.75 },
@@ -213,7 +219,7 @@ export const Field = React.forwardRef<TextInput, TextInputProps & { label?: stri
     const { c } = useTheme();
     return (
       <View style={{ gap: space.sm }}>
-        {label ? <Text style={[type.eyebrow, { color: c.inkFaint }]}>{label.toUpperCase()}</Text> : null}
+        {label ? <Text style={[type.eyebrow, { color: c.inkFaint }]}>{label}</Text> : null}
         <TextInput
           ref={ref}
           placeholderTextColor={c.inkFaint}
@@ -240,7 +246,7 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
         {
           width: size,
           height: size,
-          borderRadius: radius.sm,
+          borderRadius: size / 2,
           backgroundColor: ink,
         },
       ]}

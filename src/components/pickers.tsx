@@ -89,7 +89,7 @@ export function ReporteePicker({
             accessibilityLabel={expanded ? 'Collapse team list' : 'Show whole team'}
             style={({ pressed }) => [pressed && { opacity: 0.6 }]}
           >
-            <Text style={[type.eyebrow, { color: c.accent }]}>{asGrid ? 'LESS' : 'ALL'}</Text>
+            <Text style={[type.eyebrow, { color: c.accent }]}>{asGrid ? 'Less' : 'All'}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -360,7 +360,7 @@ export function ThemePicker({
             />
           </View>
           <Pressable onPress={commit} disabled={busy} style={styles.addAction}>
-            <Text style={[type.eyebrow, { color: c.accent }]}>{busy ? '…' : 'ADD'}</Text>
+            <Text style={[type.eyebrow, { color: c.accent }]}>{busy ? '…' : 'Add'}</Text>
           </Pressable>
           <Pressable
             onPress={() => {
@@ -369,7 +369,7 @@ export function ThemePicker({
             }}
             style={styles.addAction}
           >
-            <Text style={[type.eyebrow, { color: c.inkFaint }]}>CANCEL</Text>
+            <Text style={[type.eyebrow, { color: c.inkFaint }]}>Cancel</Text>
           </Pressable>
         </View>
       ) : null}
